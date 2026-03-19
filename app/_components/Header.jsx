@@ -27,8 +27,12 @@ function Header() {
        <div className='text-3xl text-blue-500 cursor-pointer '> SERVICEHUB</div>
         <div className='md:flex items-center gap-6 hidden'>
           <Link href='/' className='hover:scale-105 hover:text-blue-500 cursor-pointer'>Home</Link>
-          <h2 className='hover:scale-105 hover:text-blue-500 cursor-pointer' >Services</h2>
-          <h2 className='hover:scale-105 hover:text-blue-500 cursor-pointer'>About Us</h2>
+          <h2 className='hover:scale-105 hover:text-blue-500 cursor-pointer' >
+            <Link href='/services'>Services</Link>
+          </h2>
+          <h2 className='hover:scale-105 hover:text-blue-500 cursor-pointer'>
+            <Link href='/about'>About Us</Link>
+          </h2>
         </div>
       </div>
 
