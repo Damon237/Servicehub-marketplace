@@ -41,6 +41,7 @@ export default function Home() {
       <CategoryList categoryList={categoryList} />
     
       <BusinessList businessList={businessList}
+      className="mt-10 text-blue-500"
       title={'Popular Business'} />
     </div>
   );
