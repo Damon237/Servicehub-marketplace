@@ -47,23 +47,21 @@ function BusinessList({ businessList = [], title }) {
       </div>
 
       {/* --- Service Provider Invitation --- */}
-      <div className='mt-16 p-8 bg-blue-50 rounded-2xl border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-5'>
-        <div className='flex items-center gap-5 flex-col md:flex-row'>
-          <div className='bg-white p-4 rounded-full shadow-sm'>
-            <Hammer className='text-blue-500 h-7 w-7' />
-          </div>
-          <div className='text-center md:text-left'>
-            <h2 className='font-bold text-xl'>Have a skill and want to be a service provider?</h2>
-            <p className='text-gray-500'>Join our platform and start growing your business with us.</p>
-          </div>
-        </div>
-        
-        <Link href={'/be-a-provider'}>
-          <Button className="bg-blue-500 hover:bg-blue-600 px-8 py-6 text-lg rounded-full">
-            Be a Service Provider
-          </Button>
-        </Link>
-      </div>
+<div className='mt-16 p-6 md:p-8 bg-blue-50 rounded-2xl border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-5 text-center md:text-left'>
+  <div className='flex items-center gap-5 flex-col md:flex-row'>
+    <div className='bg-white p-4 rounded-full shadow-sm'>
+      <Hammer className='text-blue-500 h-7 w-7' />
+    </div>
+    <div>
+      <h2 className='font-bold text-lg md:text-xl'>Have a skill and want to be a service provider?</h2>
+      <p className='text-gray-500 text-sm md:text-base'>Join our platform and start growing your business with us.</p>
+    </div>
+  </div>
+  
+  <Link href={'/be-provider'} className="w-full md:w-auto">
+    <Button className="bg-blue-500 w-full">Join Now</Button>
+  </Link>
+</div>
     </div>
   )
 }

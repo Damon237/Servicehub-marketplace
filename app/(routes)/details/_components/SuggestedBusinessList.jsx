@@ -42,7 +42,7 @@ function SuggestedBusinessList({ business }) {
         </Button>
       </BookingSection>
 
-      <div className='hidden md:block'>
+      <div className='mt-10 md:block'>
         <h2 className='font-bold text-lg mt-3 mb-3'>
           Similar Business
         </h2>
