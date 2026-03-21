@@ -27,7 +27,9 @@ const getCategory = async () => {
   return executeQuery(query);
 };
 
-// --- BUSINESS LIST QUERIES ---
+// ─────────────────────────────────────────────────────────────
+// BUSINESS LIST QUERIES (Updated with Nested Location Object)
+// ─────────────────────────────────────────────────────────────
 
 const getAllBusinessList = async () => {
   const query = gql`
@@ -41,8 +43,10 @@ const getAllBusinessList = async () => {
         images { url }
         id
         name
-        latitude
-        longitude
+        location {
+          latitude
+          longitude
+        }
       }
     }
   `;
@@ -63,8 +67,10 @@ const getBusinessByCategory = async (category) => {
         id
         name
         images { url }
-        latitude
-        longitude
+        location {
+          latitude
+          longitude
+        }
       }
     }
   `;
@@ -85,15 +91,19 @@ const getBusinessById = async (id) => {
         id
         name
         images { url }
-        latitude
-        longitude
+        location {
+          latitude
+          longitude
+        }
       }
     }
   `;
   return executeQuery(query, { id });
 };
 
-// --- BOOKING ---
+// ─────────────────────────────────────────────────────────────
+// BOOKING & HISTORY
+// ─────────────────────────────────────────────────────────────
 
 const createNewBooking = async (businessId, date, time, userEmail, userName) => {
   const createMutation = gql`

@@ -1,49 +1,23 @@
-"use client"
-import { Button } from "@/components/ui/button";
-import Image from "next/image";
 import Hero from "./_components/Hero";
 import CategoryList from "./_components/CategoryList";
 import GlobalApi from "./_services/GlobalApi";
-import { useEffect, useState } from "react";
 import BusinessList from "./_components/BusinessList";
 
 export const revalidate = 0;
 
-export default function Home() {
+export default async function Home() {
+  // Fetching data on the server side
+  const categoryResp = await GlobalApi.getCategory();
+  const businessResp = await GlobalApi.getAllBusinessList();
 
-  const [categoryList,setCategoryList]=useState([]);
-  const [businessList,setBusinessList]=useState([]);
-  useEffect(()=>{
-    getCategoryList();
-    getAllBusinessList();
-  },[])
-
-  /**
-   * Used to get All Category List
-   */
-  const getCategoryList=()=>{
-    GlobalApi.getCategory().then(resp=>{
-      setCategoryList(resp.categories);
-    })
-  }
-
-  /**
-   * Used to get All Business List
-   */
-  const getAllBusinessList=()=>{
-    GlobalApi.getAllBusinessList().then(resp=>{
-      setBusinessList(resp.businessLists)
-    })
-  }
   return (
     <div>
-      <Hero/>
-
-      <CategoryList categoryList={categoryList} />
-    
-      <BusinessList businessList={businessList}
-      className="mt-10 text-blue-500"
-      title={'Popular Business'} />
+      <Hero />
+      <CategoryList categoryList={categoryResp?.categories || []} />
+      <BusinessList 
+        businessList={businessResp?.businessLists || []}
+        title={'Popular Business'} 
+      />
     </div>
   );
 }

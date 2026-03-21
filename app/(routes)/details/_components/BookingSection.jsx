@@ -17,7 +17,7 @@ import GlobalApi from '@/app/_services/GlobalApi';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import moment from 'moment';
-import { MapPin, Loader2, CheckCircle2 } from 'lucide-react';
+import { MapPin, Loader2 } from 'lucide-react';
 import { calculateDistance } from '@/utils/distance';
 
 function BookingSection({ children, business }) {
@@ -26,7 +26,7 @@ function BookingSection({ children, business }) {
   const [selectedTime, setSelectedTime] = useState();
   const [bookedSlot, setBookedSlot] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPaying, setIsPaying] = useState(false); // New state for payment simulation
+  const [isPaying, setIsPaying] = useState(false); 
   const [distance, setDistance] = useState(null); 
   const { data } = useSession();
 
@@ -47,14 +47,21 @@ function BookingSection({ children, business }) {
     navigator.geolocation.getCurrentPosition((pos) => {
       const userLat = pos.coords.latitude;
       const userLon = pos.coords.longitude;
-      if (business?.latitude && business?.longitude) {
-        const dist = calculateDistance(userLat, userLon, business.latitude, business.longitude);
+      
+      // ✅ FIX: Access nested location object
+      if (business?.location?.latitude && business?.location?.longitude) {
+        const dist = calculateDistance(
+          userLat, 
+          userLon, 
+          business.location.latitude, 
+          business.location.longitude
+        );
         setDistance(dist.toFixed(1));
       }
     });
   };
 
-  // --- SCHOOL PROJECT SIMULATION ---
+  // --- SCHOOL PROJECT PAYMENT SIMULATION ---
   const handleBookingProcess = () => {
     if (!business?.id || !selectedTime || !date || !data?.user?.email) {
       toast('Please complete all fields');
@@ -62,13 +69,12 @@ function BookingSection({ children, business }) {
     }
 
     setIsPaying(true);
-    toast.info("Connecting to Mobile Money Gateway...");
+    toast.info("Connecting to MTN/Orange Money Gateway...");
 
-    // Simulate the time it takes to process a payment (2 seconds)
     setTimeout(() => {
       setIsPaying(false);
       toast.success('Payment Successful (Simulated XAF 2,000)');
-      saveBooking(); // Proceed to save the booking
+      saveBooking(); 
     }, 2500);
   };
 
@@ -143,7 +149,7 @@ function BookingSection({ children, business }) {
           <SheetHeader>
             <SheetTitle>Book a Service</SheetTitle>
             <SheetDescription>
-              A deposit of 2,000 XAF is required via MTN/Orange Money.
+              A deposit of 2,000 XAF is required to confirm your appointment.
             </SheetDescription>
           </SheetHeader>
 

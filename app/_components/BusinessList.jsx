@@ -4,10 +4,9 @@ import { Hammer, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import React, { useEffect, useState } from 'react'
-import { calculateDistance } from '@/utils/distance' // Import the utility you created
+import { calculateDistance } from '@/utils/distance' 
 
 function BusinessList({ businessList = [], title }) {
-  // 1. Create a state to hold the list so we can filter it
   const [displayList, setDisplayList] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
 
@@ -15,7 +14,6 @@ function BusinessList({ businessList = [], title }) {
     setDisplayList(businessList);
   }, [businessList]);
 
-  // 2. Logic to find providers within 15km
   const getNearMe = () => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser");
@@ -27,10 +25,15 @@ function BusinessList({ businessList = [], title }) {
       const userLon = pos.coords.longitude;
 
       const nearby = businessList.filter(biz => {
-        // Only calculate if the business has coordinates in the database
-        if (biz.latitude && biz.longitude) {
-          const dist = calculateDistance(userLat, userLon, biz.latitude, biz.longitude);
-          return dist <= 15; // Filter providers within 15km
+        // ✅ UPDATE: Accessing the nested 'location' object from your new query
+        if (biz.location && biz.location.latitude && biz.location.longitude) {
+          const dist = calculateDistance(
+            userLat, 
+            userLon, 
+            biz.location.latitude, 
+            biz.location.longitude
+          );
+          return dist <= 15; // Within 15km
         }
         return false;
       });
@@ -50,7 +53,6 @@ function BusinessList({ businessList = [], title }) {
       <div className='flex justify-between items-center'>
         <h2 className='font-bold text-[22px]'>{title}</h2>
         
-        {/* 3. Add the Near Me Button */}
         {isFiltered ? (
             <Button variant="outline" onClick={resetFilter}>Show All</Button>
         ) : (
@@ -64,7 +66,6 @@ function BusinessList({ businessList = [], title }) {
         )}
       </div>
       
-      {/* Business Grid */}
       <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-5'>
         {displayList && displayList.length > 0 ? (
           displayList.map((business, index) => (
@@ -87,19 +88,21 @@ function BusinessList({ businessList = [], title }) {
                 <h2 className='font-bold text-lg line-clamp-1'>{business.name}</h2>
                 <h2 className='text-blue-500'>{business.contactPerson}</h2>
                 <h2 className='text-gray-500 text-sm line-clamp-1'>{business.address}</h2>
+                {/* Visual Distance Badge (Optional extra feature) */}
+                {isFiltered && business.location && (
+                  <span className='text-[10px] text-green-600 font-bold'>Nearby Service</span>
+                )}
                 <Button className="rounded-lg mt-3 bg-blue-500 w-full">Book Now</Button>
               </div>
             </Link>
           ))
         ) : (
-          /* If filtered and nothing found */
           isFiltered ? (
             <div className='col-span-full py-10 text-center border-2 border-dashed rounded-lg'>
                 <h2 className='text-gray-400'>No providers found within 15km of your location.</h2>
                 <Button variant="link" onClick={resetFilter}>View all providers</Button>
             </div>
           ) : (
-            /* Skeleton Loading */
             [1, 2, 3, 4].map((item, index) => (
                 <div key={index} className='w-full h-[300px] bg-slate-200 rounded-lg animate-pulse' />
             ))
@@ -107,7 +110,6 @@ function BusinessList({ businessList = [], title }) {
         )}
       </div>
 
-      {/* --- Service Provider Invitation --- */}
       <div className='mt-16 p-6 md:p-8 bg-blue-50 rounded-2xl border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-5 text-center md:text-left'>
         <div className='flex items-center gap-5 flex-col md:flex-row'>
           <div className='bg-white p-4 rounded-full shadow-sm'>
