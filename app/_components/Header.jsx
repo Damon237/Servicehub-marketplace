@@ -68,7 +68,7 @@ function Header() {
               />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>\n              <DropdownMenuSeparator />
+              <DropdownMenuLabel>My Account</DropdownMenuLabel><DropdownMenuSeparator />
               <DropdownMenuItem><Link href='/mybooking'>My Booking</Link></DropdownMenuItem>
               <DropdownMenuItem onClick={() => signOut()}>Logout</DropdownMenuItem>
             </DropdownMenuContent>

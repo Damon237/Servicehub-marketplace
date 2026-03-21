@@ -3,18 +3,19 @@ import CategorySideBar from './_components/CategorySideBar'
 
 function layout({children}) {
   return (
-    <div>
-        <div className='grid grid-cols-1 md:grid-cols-4 mt-8'>
+    <div className="px-4 md:px-0"> {/* Added padding for mobile edges */}
+        <div className='grid grid-cols-1 md:grid-cols-4 mt-8 gap-6'>
+            {/* Sidebar: Hidden on mobile, shows as 1st col on desktop */}
             <div className='hidden md:block'>
-              
-             {/* Side Category Nav bar  */}
              <CategorySideBar/>
             </div>
-            <div className='md:col-span-3 '>
+            
+            {/* Main Content: Full width on mobile, 3 cols on desktop */}
+            <div className='col-span-1 md:col-span-3'>
             {children}
             </div>
         </div>
-        </div>
+    </div>
   )
 }
 
