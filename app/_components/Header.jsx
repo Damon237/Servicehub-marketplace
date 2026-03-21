@@ -25,14 +25,15 @@ function Header() {
   const NavigationLinks = ({ className }) => (
     <div className={className}>
       <Link href='/' className='hover:scale-105 hover:text-blue-500 cursor-pointer'>Home</Link>
-      <Link href='/services' className='hover:scale-105 hover:text-blue-500 cursor-pointer'>Services</Link>
-      <Link href='/about' className='hover:scale-105 hover:text-blue-500 cursor-pointer'>About Us</Link>
+      <Link href='/' className='hover:scale-105 hover:text-blue-500 cursor-pointer'>Services</Link>
+      <Link href='/' className='hover:scale-105 hover:text-blue-500 cursor-pointer'>About Us</Link>
     </div>
   );
 
   return (
     <div className='p-5 shadow-sm flex justify-between items-center'>
       <div className='flex items-center gap-8 '>
+        
         <div className='text-2xl md:text-3xl font-bold text-blue-500 cursor-pointer'>SERVICEHUB</div>
         
         {/* Desktop Navigation */}

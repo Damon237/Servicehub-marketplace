@@ -7,6 +7,7 @@ import GlobalApi from "./_services/GlobalApi";
 import { useEffect, useState } from "react";
 import BusinessList from "./_components/BusinessList";
 
+export const revalidate = 0;
 
 export default function Home() {
 

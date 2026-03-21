@@ -16,7 +16,7 @@ function BusinessList({ businessList = [], title }) {
             <Link
               href={'/details/' + business.id}
               key={index}
-              className='shadow-md rounded-lg hover:shadow-lg cursor-pointer hover:shadow-primary hover:scale-105 transition-all ease-in-out bg-white'
+              className='shadow-md rounded-lg hover:shadow-lg cursor-pointer hover:shadow-blue-500 hover:scale-105 transition-all ease-in-out bg-white'
             >
               <Image
                 src={business?.images?.[0]?.url || '/placeholder.png'}
@@ -37,7 +37,7 @@ function BusinessList({ businessList = [], title }) {
             </Link>
           ))
         ) : (
-          [1, 2, 3, 4, 5, 6, 7, 8].map((item, index) => (
+          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((item, index) => (
             <div
               key={index}
               className='w-full h-[300px] bg-slate-200 rounded-lg animate-pulse'
