@@ -1,4 +1,4 @@
-// 📁 File: /components/BookingSection.js
+"use client"
 import React, { useEffect, useState } from 'react';
 import {
   Sheet,
@@ -17,6 +17,8 @@ import GlobalApi from '@/app/_services/GlobalApi';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import moment from 'moment';
+import { MapPin, Loader2, CheckCircle2 } from 'lucide-react';
+import { calculateDistance } from '@/utils/distance';
 
 function BookingSection({ children, business }) {
   const [date, setDate] = useState(new Date());
@@ -24,10 +26,13 @@ function BookingSection({ children, business }) {
   const [selectedTime, setSelectedTime] = useState();
   const [bookedSlot, setBookedSlot] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaying, setIsPaying] = useState(false); // New state for payment simulation
+  const [distance, setDistance] = useState(null); 
   const { data } = useSession();
 
   useEffect(() => {
     getTime();
+    calculateUserDistance(); 
   }, []);
 
   useEffect(() => {
@@ -37,6 +42,36 @@ function BookingSection({ children, business }) {
     }
   }, [date, business?.id]);
 
+  const calculateUserDistance = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const userLat = pos.coords.latitude;
+      const userLon = pos.coords.longitude;
+      if (business?.latitude && business?.longitude) {
+        const dist = calculateDistance(userLat, userLon, business.latitude, business.longitude);
+        setDistance(dist.toFixed(1));
+      }
+    });
+  };
+
+  // --- SCHOOL PROJECT SIMULATION ---
+  const handleBookingProcess = () => {
+    if (!business?.id || !selectedTime || !date || !data?.user?.email) {
+      toast('Please complete all fields');
+      return;
+    }
+
+    setIsPaying(true);
+    toast.info("Connecting to Mobile Money Gateway...");
+
+    // Simulate the time it takes to process a payment (2 seconds)
+    setTimeout(() => {
+      setIsPaying(false);
+      toast.success('Payment Successful (Simulated XAF 2,000)');
+      saveBooking(); // Proceed to save the booking
+    }, 2500);
+  };
+
   const BusinessBookedSlot = () => {
     if (!business?.id) return;
     const formattedDate = moment(date).format('DD-MMM-YYYY');
@@ -45,7 +80,6 @@ function BookingSection({ children, business }) {
         setBookedSlot(resp?.bookings || []);
       })
       .catch(error => {
-        console.error(error);
         toast('Error loading slots');
       });
   };
@@ -75,10 +109,6 @@ function BookingSection({ children, business }) {
   };
 
   const saveBooking = async () => {
-    if (!business?.id || !selectedTime || !date || !data?.user?.email) {
-      toast('Please complete all fields');
-      return;
-    }
     setIsLoading(true);
     try {
       const formattedDate = moment(date).format('DD-MMM-YYYY');
@@ -89,13 +119,13 @@ function BookingSection({ children, business }) {
         data.user.email,
         data.user.name
       );
-      if (resp?.createBooking?.id) {
-        toast('Service Booked successfully! 🎉');
+      if (resp) {
+        toast.success('Service Booked successfully! 🎉');
         setSelectedTime('');
         BusinessBookedSlot();
       }
     } catch (error) {
-      toast('Error while booking');
+      toast.error('Error while saving booking');
     } finally {
       setIsLoading(false);
     }
@@ -109,22 +139,29 @@ function BookingSection({ children, business }) {
     <div>
       <Sheet>
         <SheetTrigger asChild>{children}</SheetTrigger>
-        {/* FIX: Added sm:max-w-[500px] and w-full for Android screens */}
         <SheetContent className="overflow-y-auto w-full sm:max-w-[500px]">
           <SheetHeader>
             <SheetTitle>Book a Service</SheetTitle>
-            <SheetDescription>Select a date and time slot</SheetDescription>
+            <SheetDescription>
+              A deposit of 2,000 XAF is required via MTN/Orange Money.
+            </SheetDescription>
           </SheetHeader>
+
+          {distance && (
+            <div className="flex gap-2 items-center mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm border border-blue-100">
+              <MapPin className="h-4 w-4" />
+              Provider is <strong>{distance} km</strong> away from you.
+            </div>
+          )}
 
           <div className="mt-6 flex flex-col items-center sm:items-start space-y-4">
             <h2 className="font-semibold text-lg">Select Date</h2>
-            {/* FIX: Simplified Calendar width for small screens */}
             <div className='flex justify-center w-full'>
                 <Calendar
                     mode="single"
                     selected={date}
                     onSelect={setDate}
-                    className="rounded-md border bg-white"
+                    className="rounded-md border bg-white shadow-sm"
                     disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                 />
             </div>
@@ -132,7 +169,6 @@ function BookingSection({ children, business }) {
 
           <div className="mt-6 space-y-4">
             <h2 className="font-semibold text-lg text-center sm:text-left">Select Time Slot</h2>
-            {/* FIX: Better grid for narrow Android devices */}
             <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 gap-2">
               {timeSlot.map((item, index) => {
                 const isBooked = isSlotBooked(item.time);
@@ -142,12 +178,12 @@ function BookingSection({ children, business }) {
                 return (
                   <Button
                     key={index}
-                    disabled={isBooked || isPast || isLoading}
+                    disabled={isBooked || isPast || isLoading || isPaying}
                     variant="outline"
                     className={`
                       rounded-full p-2 px-1 text-[13px] sm:text-sm font-medium transition-all
-                      ${isSelected ? 'bg-blue-500 text-white hover:bg-blue-600' : 'hover:bg-blue-50 text-blue-600'}
-                      ${(isBooked || isPast) ? 'opacity-30 cursor-not-allowed bg-gray-100 text-gray-400' : ''}
+                      ${isSelected ? 'bg-blue-500 text-white hover:bg-blue-600 border-blue-600' : 'hover:bg-blue-50 text-blue-600 border-blue-100'}
+                      ${(isBooked || isPast) ? 'opacity-30 cursor-not-allowed bg-gray-50 text-gray-400' : ''}
                     `}
                     onClick={() => setSelectedTime(item.time)}
                   >
@@ -159,19 +195,24 @@ function BookingSection({ children, business }) {
           </div>
 
           <SheetFooter className="mt-8 pb-10">
-            {/* FIX: Stack buttons vertically on very small screens, row on larger */}
             <div className="flex flex-col sm:flex-row gap-3 w-full">
                <SheetClose asChild>
-                  <Button variant="destructive" className="w-full sm:flex-1" disabled={isLoading}>
+                  <Button variant="outline" className="w-full sm:flex-1" disabled={isLoading || isPaying}>
                     Cancel
                   </Button>
                 </SheetClose>
                 <Button 
-                  className="w-full sm:flex-1 bg-blue-500 hover:bg-blue-600"
-                  disabled={!selectedTime || !date || isLoading}
-                  onClick={saveBooking}
+                  className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white font-bold"
+                  disabled={!selectedTime || !date || isLoading || isPaying}
+                  onClick={handleBookingProcess}
                 >
-                  {isLoading ? 'Booking...' : 'Book Now'}
+                  {isPaying ? (
+                    <><Loader2 className="animate-spin mr-2" /> Processing MoMo...</>
+                  ) : isLoading ? (
+                    <><Loader2 className="animate-spin mr-2" /> Finalizing...</>
+                  ) : (
+                    'Pay & Book Now'
+                  )}
                 </Button>
             </div>
           </SheetFooter>
