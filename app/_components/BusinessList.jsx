@@ -58,7 +58,7 @@ function BusinessList({ businessList = [], title }) {
     </div>
   </div>
   
-  <Link href={'/be-provider'} className="w-full md:w-auto">
+  <Link href={'/be-a-provider'} className="w-full md:w-auto">
     <Button className="bg-blue-500 w-full">Join Now</Button>
   </Link>
 </div>

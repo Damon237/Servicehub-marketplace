@@ -6,7 +6,7 @@ function layout({children}) {
     <div className="px-4 md:px-0"> {/* Added padding for mobile edges */}
         <div className='grid grid-cols-1 md:grid-cols-4 mt-8 gap-6'>
             {/* Sidebar: Hidden on mobile, shows as 1st col on desktop */}
-            <div className='hidden md:block'>
+            <div className='col-span-1'>
              <CategorySideBar/>
             </div>
             
