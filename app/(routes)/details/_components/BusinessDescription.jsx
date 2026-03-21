@@ -11,11 +11,12 @@ function BusinessDescription({business}) {
       <div className='grid grid-cols-2 md:grid-cols-3
       lg:grid-cols-4 gap-5 mt-5'>
         {business?.images?.map((item,index)=>(
-          <Image src={item?.url} key={index}
-          alt='image'
-          width={700}
-          height={200}
-          className='rounded-lg' />
+          <Image src={item?.url} 
+                 key={index}
+                 alt='image'
+                 width={700}
+                 height={200}
+                 className='rounded-lg w-full h-[150px] object-cover' />
         ))}
       </div>
      </div>

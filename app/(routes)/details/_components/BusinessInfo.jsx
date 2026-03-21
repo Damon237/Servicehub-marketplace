@@ -30,7 +30,7 @@ function BusinessInfo({business}) {
         className='rounded-full h-[150px]
         object-cover'
       />
-      <div className='flex justify-between items-center w-full'>
+      <div className='flex flex-col md:flex-row justify-between items-start md:items-center w-full'>
       <div className='flex flex-col mt-4 md:mt-0 items-baseline gap-3'>
         <h2 className='text-blue-500 p-1 px-3
         text-lg 

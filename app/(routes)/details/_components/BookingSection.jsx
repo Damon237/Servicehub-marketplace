@@ -142,7 +142,7 @@ function BookingSection({ children, business }) {
 
           <div className="mt-6 space-y-4">
             <h2 className="font-semibold text-lg">Select Time Slot</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {timeSlot.map((item, index) => {
                 const isBooked = isSlotBooked(item.time);
                 const isPast = isTimePast(item.time); // ✅ Check if time passed
