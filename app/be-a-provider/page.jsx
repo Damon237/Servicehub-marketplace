@@ -1,126 +1,191 @@
 "use client"
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Hammer, Send, ArrowLeft, Mail, Briefcase, MapPin } from 'lucide-react'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import GlobalApi from '@/app/_services/GlobalApi'
+import { useSession } from 'next-auth/react'
+import { toast } from 'sonner'
+import { Loader2, BriefcaseIcon, Building2, MapPin, Phone, ArrowLeft, ImagePlus, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-function BeAProvider() {
-  const router = useRouter();
-  
-  // Updated state based on your requirements
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    skill: '',
-    specialty: '',
-    description: '',
-    address: ''
-  });
+function BeAProviderPage() {
+    const { data: session } = useSession();
+    const router = useRouter();
+    
+    const [name, setName] = useState('');
+    const [address, setAddress] = useState('');
+    const [phone, setPhone] = useState('');
+    const [categoryId, setCategoryId] = useState('');
+    const [categoryList, setCategoryList] = useState([]);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [filePreview, setFilePreview] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [isProvider, setIsProvider] = useState(false);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  }
+    useEffect(() => {
+        if (session?.user?.email) {
+            checkUserIsProvider();
+            getCategoryList();
+        }
+    }, [session]);
 
-  const onSubmit = (e) => {
-    e.preventDefault();
+    const checkUserIsProvider = () => {
+        GlobalApi.getBusinessByEmail(session.user.email).then(resp => {
+            if (resp) {
+                setIsProvider(true);
+                toast.info("You already have a professional profile!");
+                router.push('/provider-dashboard');
+            }
+        });
+    }
 
-    // Your WhatsApp Number
-    const phoneNumber = "237653416598"; 
+    const getCategoryList = () => {
+        GlobalApi.getCategory().then(resp => {
+            setCategoryList(resp.categories);
+        });
+    }
 
-    // URL Encoding strings to handle spaces and symbols safely
-    const message = `*New Service Provider Application*%0A` +
-                    `--------------------------%0A` +
-                    `*Name:* ${encodeURIComponent(formData.name)}%0A` +
-                    `*Phone:* ${encodeURIComponent(formData.phone)}%0A` +
-                    `*Email:* ${encodeURIComponent(formData.email)}%0A` +
-                    `*Skill:* ${encodeURIComponent(formData.skill)}%0A` +
-                    `*Specialty:* ${encodeURIComponent(formData.specialty)}%0A` +
-                    `*Address:* ${encodeURIComponent(formData.address)}%0A` +
-                    `*Description:* ${encodeURIComponent(formData.description)}`;
+    const onFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setSelectedFile(file);
+            setFilePreview(URL.createObjectURL(file));
+        }
+    };
 
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
-    window.open(whatsappUrl, '_blank');
-  }
+    const onRegister = async () => {
+        if (!name || !address || !phone || !categoryId || !selectedFile) {
+            toast.error("Please fill all fields and upload a business image");
+            return;
+        }
 
-  return (
-    <div className='p-5 md:px-20 lg:px-40 mt-10 mb-20'>
-      {/* Back Button */}
-      <Button variant="ghost" onClick={() => router.back()} className="flex gap-2 items-center mb-5 hover:bg-blue-50">
-        <ArrowLeft className='h-4 w-4' /> Back to Home
-      </Button>
+        setLoading(true);
+        try {
+            // STEP 1: Upload the Image to Hygraph Assets
+           const assetResp = await GlobalApi.uploadAsset(selectedFile);
+            const imageId = assetResp?.id;
 
-      <div className='flex flex-col items-center justify-center border p-8 rounded-3xl shadow-lg bg-white'>
-        <div className='bg-blue-600 p-4 rounded-2xl mb-4 shadow-blue-200 shadow-lg'>
-          <Hammer className='h-10 w-10 text-white' />
+            if (!imageId) {
+                throw new Error("Image upload failed");
+            }
+
+            // STEP 2: Create the Business with the Image ID
+            const data = {
+                name: name,
+                address: address,
+                email: session?.user?.email,
+                contactPerson: session?.user?.name,
+                phone: parseInt(phone), 
+                categoryId: categoryId,
+                imageId: imageId 
+            }
+
+            const resp = await GlobalApi.createNewBusiness(data);
+            if (resp) {
+                toast.success("Professional Profile Activated! 🎉");
+                router.push('/provider-dashboard');
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Error: Registration failed. Ensure all details are correct.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    if (isProvider) return null;
+
+    return (
+        <div className='p-5 md:px-20 lg:px-40 mt-10 mb-20'>
+            <Button variant="ghost" onClick={() => router.back()} className="flex gap-2 items-center mb-5">
+                <ArrowLeft className='h-4 w-4' /> Back
+            </Button>
+
+            <div className='flex flex-col items-center justify-center border p-8 rounded-3xl shadow-lg bg-white max-w-2xl mx-auto'>
+                <div className='bg-primary p-4 rounded-2xl mb-4 shadow-lg text-white'>
+                    <BriefcaseIcon className='h-10 w-10' />
+                </div>
+                
+                <h2 className='font-bold text-3xl text-center text-slate-800'>Join the Expert Network</h2>
+                <p className='text-gray-500 text-center mt-2'>
+                    Provide your details and upload a photo of your work or shop to get started.
+                </p>
+
+                <div className='flex flex-col gap-6 mt-10 w-full'>
+                    {/* Image Upload Section */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-600">Business Cover Image</label>
+                        <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer relative min-h-[150px]">
+                            {!filePreview ? (
+                                <label className="flex flex-col items-center cursor-pointer w-full py-6">
+                                    <ImagePlus className="h-10 w-10 text-slate-400 mb-2" />
+                                    <span className="text-xs text-slate-500 font-medium">Click to upload shop or work photo</span>
+                                    <input type="file" className="hidden" accept="image/*" onChange={onFileSelect} />
+                                </label>
+                            ) : (
+                                <div className="relative w-full aspect-video">
+                                    <img src={filePreview} className="rounded-xl object-cover w-full h-full" alt="Preview" />
+                                    <Button 
+                                        variant="destructive" 
+                                        size="icon" 
+                                        className="absolute -top-2 -right-2 rounded-full h-8 w-8 shadow-md"
+                                        onClick={() => {setFilePreview(null); setSelectedFile(null);}}
+                                    >
+                                        <X size={14} />
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold flex gap-2 items-center text-slate-600"><Building2 size={16}/> Business Name</label>
+                            <Input placeholder="e.g. Douala Plumbers" onChange={(e) => setName(e.target.value)} className="h-12 rounded-xl bg-slate-50 border-none" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold flex gap-2 items-center text-slate-600"><Phone size={16}/> WhatsApp Number</label>
+                            <Input type="number" placeholder="670000000" onChange={(e) => setPhone(e.target.value)} className="h-12 rounded-xl bg-slate-50 border-none" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold flex gap-2 items-center text-slate-600"><MapPin size={16}/> Business Location</label>
+                        <Input placeholder="e.g. Akwa, Douala" onChange={(e) => setAddress(e.target.value)} className="h-12 rounded-xl bg-slate-50 border-none" />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-600">Service Category</label>
+                        <Select onValueChange={(value) => setCategoryId(value)}>
+                            <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none">
+                                <SelectValue placeholder="Select Category" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                                {categoryList.map((cat, index) => (
+                                    <SelectItem key={index} value={cat.id}>{cat.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <Button 
+                        onClick={onRegister} 
+                        disabled={loading}
+                        className="w-full mt-4 h-14 rounded-2xl text-lg font-bold shadow-lg shadow-blue-100 transition-all active:scale-95"
+                    >
+                        {loading ? <Loader2 className='animate-spin' /> : 'Create Professional Account'}
+                    </Button>
+                </div>
+            </div>
         </div>
-        <h2 className='font-bold text-3xl text-center text-slate-800'>Join the Expert Network</h2>
-        <p className='text-gray-500 text-center mt-2 max-w-md'>
-          Complete your profile details. Clicking submit will open a direct chat with our administration team.
-        </p>
-
-        <form onSubmit={onSubmit} className='w-full max-w-2xl mt-10 flex flex-col gap-6'>
-          
-          {/* Personal Info Row */}
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-            <div className='flex flex-col gap-2'>
-              <label className='font-semibold text-sm text-slate-600'>Full Name</label>
-              <Input name="name" placeholder="Enter full name" required onChange={handleChange} className="h-12 rounded-xl" />
-            </div>
-            <div className='flex flex-col gap-2'>
-              <label className='font-semibold text-sm text-slate-600'>WhatsApp Number</label>
-              <Input name="phone" type="tel" placeholder="e.g. 237..." required onChange={handleChange} className="h-12 rounded-xl" />
-            </div>
-          </div>
-
-          {/* Email Row */}
-          <div className='flex flex-col gap-2'>
-            <label className='font-semibold text-sm text-slate-600'>Email Address</label>
-            <Input name="email" type="email" placeholder="example@mail.com" required onChange={handleChange} className="h-12 rounded-xl" />
-          </div>
-
-          {/* Professional Details Row */}
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-            <div className='flex flex-col gap-2'>
-              <label className='font-semibold text-sm text-slate-600'>Main Skill</label>
-              <Input name="skill" placeholder="e.g. Electrician" required onChange={handleChange} className="h-12 rounded-xl" />
-            </div>
-            <div className='flex flex-col gap-2'>
-              <label className='font-semibold text-sm text-slate-600'>Specialty</label>
-              <Input name="specialty" placeholder="e.g. Solar Installations" required onChange={handleChange} className="h-12 rounded-xl" />
-            </div>
-          </div>
-
-          <div className='flex flex-col gap-2'>
-            <label className='font-semibold text-sm text-slate-600'>Location / City</label>
-            <Input name="address" placeholder="Where is your business based?" required onChange={handleChange} className="h-12 rounded-xl" />
-          </div>
-
-          <div className='flex flex-col gap-2'>
-            <label className='font-semibold text-sm text-slate-600'>Work Description</label>
-            <Textarea 
-              name="description" 
-              placeholder="Briefly describe your services and years of experience..." 
-              className="h-32 rounded-xl resize-none" 
-              required
-              onChange={handleChange} 
-            />
-          </div>
-
-          <Button type="submit" className="w-full h-14 bg-green-600 hover:bg-green-700 text-lg font-bold gap-3 rounded-2xl transition-all shadow-lg shadow-green-100">
-            <Send className='h-8 w-8' /> Submit via WhatsApp
-          </Button>
-          
-          <p className='text-center text-xs text-gray-400'>
-            By submitting, you agree to be contacted by our team for verification.
-          </p>
-        </form>
-      </div>
-    </div>
-  )
+    )
 }
 
-export default BeAProvider
+export default BeAProviderPage

@@ -76,7 +76,7 @@ function Header() {
           </DropdownMenu>
         ) : (
           <Button className="bg-blue-500 hover:bg-blue-600 text-white" onClick={() => signIn('google')}>
-            Login
+            Login/SignUp
           </Button>
         )}
       </div>

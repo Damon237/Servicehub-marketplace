@@ -11,13 +11,16 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-import { Calendar } from "@/components/ui/calendar";
+// 1. Logic Component (The Date Picker)
+import { Calendar } from "@/components/ui/calendar"; 
 import { Button } from '@/components/ui/button';
 import GlobalApi from '@/app/_services/GlobalApi';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import moment from 'moment';
-import { MapPin, Loader2 } from 'lucide-react';
+
+// 2. Visual Icons (Notice we rename Calendar to CalendarIcon here)
+import { MapPin, Loader2, Clock, Calendar as CalendarIcon, Wallet } from 'lucide-react'; 
 import { calculateDistance } from '@/utils/distance';
 
 function BookingSection({ children, business }) {
@@ -28,16 +31,16 @@ function BookingSection({ children, business }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isPaying, setIsPaying] = useState(false); 
   const [distance, setDistance] = useState(null); 
-  const { data } = useSession();
+  const { data: session } = useSession();
 
   useEffect(() => {
     getTime();
     calculateUserDistance(); 
-  }, []);
+  }, [business]);
 
   useEffect(() => {
     if (date && business?.id) {
-      BusinessBookedSlot();
+      getBusinessBookedSlots();
       setSelectedTime(null);
     }
   }, [date, business?.id]);
@@ -48,7 +51,6 @@ function BookingSection({ children, business }) {
       const userLat = pos.coords.latitude;
       const userLon = pos.coords.longitude;
       
-      // ✅ FIX: Access nested location object
       if (business?.location?.latitude && business?.location?.longitude) {
         const dist = calculateDistance(
           userLat, 
@@ -61,32 +63,31 @@ function BookingSection({ children, business }) {
     });
   };
 
-  // --- SCHOOL PROJECT PAYMENT SIMULATION ---
   const handleBookingProcess = () => {
-    if (!business?.id || !selectedTime || !date || !data?.user?.email) {
-      toast('Please complete all fields');
+    if (!business?.id || !selectedTime || !date || !session?.user?.email) {
+      toast.error('Please complete all fields and login');
       return;
     }
 
     setIsPaying(true);
-    toast.info("Connecting to MTN/Orange Money Gateway...");
+    toast.info("Connecting to Mobile Money Gateway...");
 
     setTimeout(() => {
       setIsPaying(false);
-      toast.success('Payment Successful (Simulated XAF 2,000)');
+      toast.success('Payment Successful (2,000 XAF Deposit Received)');
       saveBooking(); 
     }, 2500);
   };
 
-  const BusinessBookedSlot = () => {
+  const getBusinessBookedSlots = () => {
     if (!business?.id) return;
-    const formattedDate = moment(date).format('DD-MMM-YYYY');
+    const formattedDate = moment(date).format('DD-MMM-YYYY'); 
     GlobalApi.BusinessBookedSlot(business.id, formattedDate)
       .then(resp => {
         setBookedSlot(resp?.bookings || []);
       })
       .catch(error => {
-        toast('Error loading slots');
+        console.error("❌ Error loading slots:", error);
       });
   };
 
@@ -122,60 +123,70 @@ function BookingSection({ children, business }) {
         business.id,
         formattedDate,
         selectedTime,
-        data.user.email,
-        data.user.name
+        session.user.email,
+        session.user.name
       );
+
       if (resp) {
         toast.success('Service Booked successfully! 🎉');
-        setSelectedTime('');
-        BusinessBookedSlot();
+        setSelectedTime(null);
+        getBusinessBookedSlots();
       }
     } catch (error) {
-      toast.error('Error while saving booking');
+      console.error("❌ Save booking error:", error);
+      toast.error('Booking failed. Please check your connection.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const isSlotBooked = (time) => {
-    return bookedSlot.find(item => item.time === time);
+    return bookedSlot.some(item => item.time === time);
   };
 
   return (
     <div>
       <Sheet>
         <SheetTrigger asChild>{children}</SheetTrigger>
-        <SheetContent className="overflow-y-auto w-full sm:max-w-[500px]">
+        <SheetContent className="overflow-y-auto w-full sm:max-w-[500px] border-l-primary">
           <SheetHeader>
-            <SheetTitle>Book a Service</SheetTitle>
-            <SheetDescription>
-              A deposit of 2,000 XAF is required to confirm your appointment.
+            <SheetTitle className="text-2xl font-bold text-primary">Confirm Booking</SheetTitle>
+            <SheetDescription className="text-slate-500">
+              Complete the payment to secure your appointment with <strong>{business.name}</strong>.
             </SheetDescription>
           </SheetHeader>
 
           {distance && (
-            <div className="flex gap-2 items-center mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm border border-blue-100">
+            <div className="flex gap-2 items-center mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm border border-blue-100 animate-pulse">
               <MapPin className="h-4 w-4" />
-              Provider is <strong>{distance} km</strong> away from you.
+              Provider is roughly <strong>{distance} km</strong> away.
             </div>
           )}
 
-          <div className="mt-6 flex flex-col items-center sm:items-start space-y-4">
-            <h2 className="font-semibold text-lg">Select Date</h2>
+          {/* DATE SELECTION SECTION */}
+          <div className="mt-6 space-y-4">
+            <h2 className="font-semibold text-lg flex items-center gap-2">
+                {/* Changed to CalendarIcon to avoid duplication */}
+                <CalendarIcon className="h-5 w-5 text-primary" /> Select Date
+            </h2>
             <div className='flex justify-center w-full'>
+                {/* This is the actual UI Date Picker */}
                 <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={setDate}
-                    className="rounded-md border bg-white shadow-sm"
+                    onSelect={(d) => d && setDate(d)}
+                    className="rounded-xl border bg-white shadow-sm"
                     disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                 />
             </div>
           </div>
 
+          {/* TIME SLOT SECTION */}
           <div className="mt-6 space-y-4">
-            <h2 className="font-semibold text-lg text-center sm:text-left">Select Time Slot</h2>
-            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 gap-2">
+            <h2 className="font-semibold text-lg flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" /> Available Hours
+            </h2>
+            <div className="grid grid-cols-3 gap-2">
               {timeSlot.map((item, index) => {
                 const isBooked = isSlotBooked(item.time);
                 const isPast = isTimePast(item.time);
@@ -187,9 +198,9 @@ function BookingSection({ children, business }) {
                     disabled={isBooked || isPast || isLoading || isPaying}
                     variant="outline"
                     className={`
-                      rounded-full p-2 px-1 text-[13px] sm:text-sm font-medium transition-all
-                      ${isSelected ? 'bg-blue-500 text-white hover:bg-blue-600 border-blue-600' : 'hover:bg-blue-50 text-blue-600 border-blue-100'}
-                      ${(isBooked || isPast) ? 'opacity-30 cursor-not-allowed bg-gray-50 text-gray-400' : ''}
+                      rounded-lg p-2 text-[12px] font-medium transition-all duration-300
+                      ${isSelected ? 'bg-primary text-white scale-105' : 'hover:border-primary text-slate-600'}
+                      ${(isBooked || isPast) ? 'bg-slate-50 text-slate-300 border-slate-100' : ''}
                     `}
                     onClick={() => setSelectedTime(item.time)}
                   >
@@ -201,25 +212,38 @@ function BookingSection({ children, business }) {
           </div>
 
           <SheetFooter className="mt-8 pb-10">
-            <div className="flex flex-col sm:flex-row gap-3 w-full">
-               <SheetClose asChild>
-                  <Button variant="outline" className="w-full sm:flex-1" disabled={isLoading || isPaying}>
-                    Cancel
-                  </Button>
-                </SheetClose>
-                <Button 
-                  className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white font-bold"
-                  disabled={!selectedTime || !date || isLoading || isPaying}
-                  onClick={handleBookingProcess}
-                >
-                  {isPaying ? (
-                    <><Loader2 className="animate-spin mr-2" /> Processing MoMo...</>
-                  ) : isLoading ? (
-                    <><Loader2 className="animate-spin mr-2" /> Finalizing...</>
-                  ) : (
-                    'Pay & Book Now'
-                  )}
-                </Button>
+            <div className="flex flex-col gap-3 w-full">
+                <div className='bg-slate-50 p-4 rounded-xl border border-slate-200'>
+                    <div className='flex justify-between text-sm'>
+                        <span className='text-slate-500'>Booking Deposit:</span>
+                        <span className='font-bold text-slate-800'>2,000 XAF</span>
+                    </div>
+                    <div className='flex justify-between text-xs text-slate-400 mt-1'>
+                        <span>Operators:</span>
+                        <span>MTN/Orange Money</span>
+                    </div>
+                </div>
+
+                <div className='flex gap-2'>
+                    <SheetClose asChild>
+                        <Button variant="outline" className="flex-1 rounded-xl" disabled={isLoading || isPaying}>
+                            Cancel
+                        </Button>
+                    </SheetClose>
+                    <Button 
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg"
+                        disabled={!selectedTime || !date || isLoading || isPaying}
+                        onClick={handleBookingProcess}
+                    >
+                        {isPaying ? (
+                            <><Loader2 className="animate-spin mr-2 h-4 w-4" /> MoMo Pay...</>
+                        ) : isLoading ? (
+                            <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Saving...</>
+                        ) : (
+                            <><Wallet className="mr-2 h-4 w-4" /> Pay & Confirm</>
+                        )}
+                    </Button>
+                </div>
             </div>
           </SheetFooter>
         </SheetContent>
