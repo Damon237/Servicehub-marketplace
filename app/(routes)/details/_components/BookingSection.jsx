@@ -93,7 +93,7 @@ function BookingSection({ children, business }) {
 
   const getTime = () => {
     const timeList = [];
-    for (let i = 10; i <= 12; i++) {
+    for (let i = 8; i <= 12; i++) {
       timeList.push({ time: i + ':00 AM' });
       timeList.push({ time: i + ':30 AM' });
     }
