@@ -17,6 +17,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "eu-west-2.graphassets.com",
       },
+      {
+        protocol: "https",
+        hostname: "eu-west-2.cdn.hygraph.com", 
+      },
     ],
   },
 };

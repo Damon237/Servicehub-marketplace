@@ -61,6 +61,7 @@ function SuggestedBusinessList({ business }) {
                 alt={item.name || "business"}
                 width={80}
                 height={80}
+                unoptimized
                 className='rounded-lg object-cover h-[100px]'
               />
 

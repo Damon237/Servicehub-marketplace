@@ -61,45 +61,45 @@ function BeAProviderPage() {
     };
 
     const onRegister = async () => {
-        if (!name || !address || !phone || !categoryId || !selectedFile) {
-            toast.error("Please fill all fields and upload a business image");
-            return;
+    // ... validation ...
+    setLoading(true);
+    try {
+        // STEP 1: Upload
+        const assetResp = await GlobalApi.uploadAsset(selectedFile);
+        const imageId = assetResp?.id;
+
+        if (!imageId) throw new Error("Upload failed");
+
+        // STEP 2: PUBLISH THE ASSET (This fixes your error)
+        // This makes the image "visible" to the Business mutation
+        await GlobalApi.publishAsset(imageId);
+
+        // STEP 3: Create Business
+        const data = {
+            name,
+            address,
+            email: session?.user?.email,
+            contactPerson: session?.user?.name,
+            phone: parseInt(phone), 
+            categoryId: categoryId,
+            imageId: imageId 
+        };
+
+        const resp = await GlobalApi.createNewBusiness(data);
+        
+        if (resp) {
+            // STEP 4: Publish the Business so it shows up on the Home Page
+            await GlobalApi.publishBusiness(resp.createBusinessList.id);
+            toast.success("Profile Activated! 🎉");
+            router.push('/provider-dashboard');
         }
-
-        setLoading(true);
-        try {
-            // STEP 1: Upload the Image to Hygraph Assets
-           const assetResp = await GlobalApi.uploadAsset(selectedFile);
-            const imageId = assetResp?.id;
-
-            if (!imageId) {
-                throw new Error("Image upload failed");
-            }
-
-            // STEP 2: Create the Business with the Image ID
-            const data = {
-                name: name,
-                address: address,
-                email: session?.user?.email,
-                contactPerson: session?.user?.name,
-                phone: parseInt(phone), 
-                categoryId: categoryId,
-                imageId: imageId 
-            }
-
-            const resp = await GlobalApi.createNewBusiness(data);
-            if (resp) {
-                toast.success("Professional Profile Activated! 🎉");
-                router.push('/provider-dashboard');
-            }
-        } catch (error) {
-            console.error(error);
-            toast.error("Error: Registration failed. Ensure all details are correct.");
-        } finally {
-            setLoading(false);
-        }
+    } catch (error) {
+        console.error("Detailed Error:", error);
+        toast.error("Connection failed. Ensure the image is a valid JPG/PNG.");
+    } finally {
+        setLoading(false);
     }
-
+};
     if (isProvider) return null;
 
     return (

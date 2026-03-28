@@ -22,8 +22,15 @@ const getCategory = async () => {
 const getAllBusinessList = async () => {
   const query = gql`
     query BusinessList {
-      businessLists {
-        about address category { name } contactPerson email images { url } id name
+      businessLists(first: 100) { 
+        about 
+        address 
+        category { name } 
+        contactPerson 
+        email 
+        images { url } 
+        id 
+        name
         location { latitude longitude }
       }
     }
@@ -66,7 +73,6 @@ const getBusinessById = async (id) => {
 };
 
 // --- BOOKING LOGIC ---
-// In GlobalApi.js
 const createNewBooking = async (businessId, date, time, userEmail, userName) => {
   const mutation = gql`
     mutation CreateBooking($businessId: ID!, $date: String!, $time: String!, $userEmail: String!, $userName: String!) {
@@ -128,7 +134,6 @@ const getBookingHistoryByBusinessEmail = async (email) => {
   const query = gql`
     query GetBookingHistoryByBusinessEmail($email: String!) {
       bookings(
-        # Look for bookings where the linked business has this email
         where: { businessList: { email: $email } }, 
         orderBy: publishedAt_DESC
       ) {
@@ -184,69 +189,167 @@ const updateBusinessProfile = async (id, data) => {
 };
 
 const updateBookingStatus = async (bookingId, status, reason = "") => {
-  const mutation = gql`
-    mutation UpdateBookingStatus($id: ID!, $status: String!, $reason: String) {
-      updateBooking(where: { id: $id }, data: { 
-        bookingStatut: $status, 
-        postponeReason: $reason 
-      }) { id }
-      publishBooking(where: { id: $id }) { id }
+  // 1. Update the status and note
+  const updateMutation = gql`
+    mutation UpdateBooking($id: ID!, $status: String!, $reason: String) {
+      updateBooking(
+        where: { id: $id }
+        data: { bookingStatut: $status, note: $reason }
+      ) {
+        id
+      }
     }
   `;
-  return executeQuery(mutation, { id: bookingId, status, reason });
+
+  const result = await executeQuery(updateMutation, { id: bookingId, status, reason });
+
+  // 2. IMPORTANT: Publish the update so the UI sees it
+  if (result) {
+    const publishMutation = gql`
+      mutation PublishBooking($id: ID!) {
+        publishBooking(where: { id: $id }, to: [PUBLISHED]) {
+          id
+        }
+      }
+    `;
+    await executeQuery(publishMutation, { id: bookingId });
+  }
+
+  return result;
 };
 
 const deleteBooking = async (bookingId) => {
   const mutation = gql`
     mutation DeleteBooking($bookingId: ID!) {
-      # Step 1: Remove from the Published stage
       unpublishBooking(where: { id: $bookingId }, from: [PUBLISHED]) { id }
-      
-      # Step 2: Delete the actual record
       deleteBooking(where: { id: $bookingId }) { id }
     }
   `;
   return executeQuery(mutation, { bookingId });
 };
 
-// NEW: PROVIDER REGISTRATION
 const uploadAsset = async (file) => {
-  // 1. Create FormData
   const formData = new FormData();
   formData.append('fileUpload', file);
 
-  // 2. Construct the URL carefully
-  // Ensure there are no double slashes or missing slashes
-  const UPLOAD_URL = MASTER_URL
+  const UPLOAD_URL = process.env.NEXT_PUBLIC_MASTER_URL
     .replace('.cdn.', '.api.')
     .split('/master')[0] + '/upload';
 
-  try {
-    const response = await fetch(UPLOAD_URL, {
-      method: 'POST',
-      body: formData, // The browser WILL handle the Content-Type and Boundary automatically
-      headers: {
-        // ONLY include the Authorization token
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_MASTER_URL_KEY}`,
-      },
-    });
+  const response = await fetch(UPLOAD_URL, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'Authorization': `Bearer ${process.env.NEXT_PUBLIC_MASTER_URL_KEY}`,
+    },
+  });
 
-    if (!response.ok) {
-      const errorResponse = await response.text();
-      console.error("Hygraph Upload Rejected:", errorResponse);
-      throw new Error(`Upload failed with status ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (err) {
-    console.error("Fetch Execution Error:", err);
-    throw err;
+  if (!response.ok) {
+    const errorData = await response.text();
+    console.error("Hygraph Error:", errorData);
+    throw new Error("Upload rejected by server");
   }
+
+  return await response.json();
 };
-// app/_services/GlobalApi.js
+
+// --- ADMIN & MANAGEMENT LOGIC ---
+
+const deleteBusiness = async (businessId) => {
+  const mutation = gql`
+    mutation DeleteBusiness($id: ID!) {
+      unpublishBusinessList(where: { id: $id }, from: [PUBLISHED]) { id }
+      deleteBusinessList(where: { id: $id }) { id }
+    }
+  `;
+  return executeQuery(mutation, { id: businessId });
+};
+
+/**
+ * Updated Business Logic
+ * Handles text fields and optional relationship updates for Category/Images.
+ */
+const updateBusiness = async (id, data) => {
+  const mutation = gql`
+    mutation UpdateBusiness(
+      $id: ID!, 
+      $name: String!, 
+      $address: String!, 
+      $contactPerson: String!, 
+      $about: String,
+      $categoryId: ID,
+      $imageId: ID
+    ) {
+      updateBusinessList(
+        where: { id: $id }
+        data: { 
+          name: $name, 
+          address: $address, 
+          contactPerson: $contactPerson,
+          about: $about,
+          # Update Category if ID is provided
+          category: { connect: { id: $categoryId } },
+          # Update Image if ID is provided
+          images: { connect: [{ id: $imageId }] }
+        }
+      ) { id }
+      publishBusinessList(where: { id: $id }, to: [PUBLISHED]) { id }
+    }
+  `;
+  
+  const variables = {
+    id,
+    name: data.name,
+    address: data.address,
+    contactPerson: data.contactPerson,
+    about: data.about || "",
+    categoryId: data.categoryId || null,
+    imageId: data.imageId || null
+  };
+
+  return executeQuery(mutation, variables);
+};
+
+const createCategory = async (name, color, iconId) => {
+  const mutation = gql`
+    mutation CreateCategory($name: String!, $color: String!, $iconId: ID!) {
+      createCategory(data: { 
+        name: $name, 
+        bgcolor: { hex: $color }, 
+        icon: { connect: { id: $iconId } } 
+      }) { id }
+      publishCategory(where: { name: $name }, to: [PUBLISHED]) { id }
+    }
+  `;
+  return executeQuery(mutation, { name, color, iconId });
+};
+
+const getAllBookingsAdmin = async () => {
+  const query = gql`
+    query GetAllBookings {
+      bookings(orderBy: publishedAt_DESC) {
+        id userName userEmail date time bookingStatut
+        businessList { name }
+      }
+    }
+  `;
+  return executeQuery(query);
+};
+
+const getAdminStats = async () => {
+  const query = gql`
+    query GetStats {
+      businessListsConnection { aggregate { count } }
+      bookingsConnection { aggregate { count } }
+      categoriesConnection { aggregate { count } }
+    }
+  `;
+  return executeQuery(query);
+};
 
 const createNewBusiness = async (data) => {
-  const mutation = gql`
+  // 1. Define the Creation Mutation
+  const createMutation = gql`
     mutation CreateBusiness(
       $name: String!, 
       $address: String!, 
@@ -256,7 +359,6 @@ const createNewBusiness = async (data) => {
       $categoryId: ID!, 
       $imageId: ID! 
     ) {
-    
       createBusinessList(data: {
         name: $name, 
         address: $address, 
@@ -264,18 +366,125 @@ const createNewBusiness = async (data) => {
         contactPerson: $contactPerson,
         phone: $phone,
         category: { connect: { id: $categoryId } },
-        images: { connect: { id: $imageId } } 
-      }) {
-        id
+        images: { connect: [{ id: $imageId }] } 
+      }) { id }
+    }
+  `;
+
+  // 2. Execute the Create Mutation
+  // Ensure phone is a Number to match the $phone: Int! type
+  const createResult = await executeQuery(createMutation, {
+    ...data,
+    phone: parseInt(data.phone) 
+  });
+
+  const newId = createResult?.createBusinessList?.id;
+
+  // 3. Automatically Publish if creation was successful
+  if (newId) {
+    const publishMutation = gql`
+      mutation PublishBusiness($id: ID!) {
+        publishBusinessList(where: { id: $id }, to: [PUBLISHED]) { 
+          id 
+        }
       }
-      
-      
-      publishBusinessList(where: { email: $email }, to: [PUBLISHED]) {
-        id
+    `;
+    await executeQuery(publishMutation, { id: newId });
+  }
+
+  return createResult;
+};
+
+
+// --- REVIEWS & RATINGS ---
+const createReviews = async (businessId, userName, rating, reviewText) => {
+  const mutation = gql`
+    mutation CreateReview($businessId: ID!, $userName: String!, $rating: Int!, $reviewText: String!) {
+      createReviews(data: {
+        userName: $userName,
+        rating: $rating,
+        reviewText: $reviewText,
+        businessList: { connect: { id: $businessId } }
+      }) { 
+        id 
       }
     }
   `;
-  return executeQuery(mutation, data);
+  
+  const result = await executeQuery(mutation, { businessId, userName, rating, reviewText });
+  
+  // FIX: Use publishReviews (plural) to match your schema
+  if (result?.createReviews?.id) {
+    const publishMutation = gql`
+      mutation PublishReview($id: ID!) {
+        publishReviews(where: { id: $id }, to: [PUBLISHED]) { 
+          id 
+        }
+      }
+    `;
+    await executeQuery(publishMutation, { id: result.createReviews.id });
+  }
+  return result;
+};
+
+const getBusinessReviews = async (businessId) => {
+  const query = gql`
+    query GetReviews($businessId: ID!) {
+      reviewConnection(
+        where: { businessList: { id: $businessId } }, 
+        orderBy: createdAt_DESC,
+        # Force it to show DRAFT items if publishing is slow
+        stage: DRAFT
+      ) {
+        edges {
+          node {
+            userName
+            rating
+            reviewText
+            createdAt
+          }
+        }
+      }
+    }
+  `;
+  
+  const result = await executeQuery(query, { businessId });
+  return result?.reviewConnection?.edges.map(edge => edge.node) || [];
+};
+
+// --- INTERVAL BOOKING ---
+
+const createIntervalBooking = async (businessId, startDate, endDate, userEmail, userName) => {
+  const mutation = gql`
+    mutation CreateBooking($businessId: ID!, $startDate: String!, $endDate: String!, $userEmail: String!, $userName: String!) {
+      # Use createBooking (singular) as verified by your test
+      createBooking(data: {
+        userName: $userName,
+        userEmail: $userEmail,
+        date: $startDate, 
+        time: $endDate, 
+        bookingStatut: booked, 
+        businessList: { connect: { id: $businessId } }
+      }) { 
+        id 
+      }
+
+      # Publish immediately after creation
+      publishManyBookings(where: {bookingStatut: booked}, to: [PUBLISHED]) {
+        count
+      }
+    }
+  `;
+
+  // Note: We are mapping 'startDate' to the 'date' field 
+  // and 'endDate' to the 'time' field to fit your schema.
+  return await executeQuery(mutation, { 
+    businessId, 
+    startDate, 
+    endDate, 
+    userEmail, 
+    userName 
+  });
 };
 
 export default {
@@ -291,7 +500,15 @@ export default {
   createNewBusiness,
   GetUserBookingHistory,
   deleteBooking,
+  deleteBusiness,
+  createCategory,
+  getAdminStats,
   getBusinessByCategory,
   updateBookingStatusAndReason,
   uploadAsset,
+  getAllBookingsAdmin,
+  updateBusiness,
+  createReviews,
+  getBusinessReviews,
+  createIntervalBooking,
 };

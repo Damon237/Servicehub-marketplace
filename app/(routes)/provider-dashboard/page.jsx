@@ -113,7 +113,7 @@ function ProviderDashboard() {
                     <h1 className='text-3xl font-bold text-primary flex items-center gap-2'>
                         <Briefcase className='text-primary' /> Provider Dashboard
                     </h1>
-                    <p className='text-gray-600 font-medium'>Welcome back, {businessData.name}</p>
+                    <p className='text-gray-600 font-medium'>Welcome back, <span className="text-xl text-blue-500"> {businessData.contactPerson}</span>  ({businessData.name})</p>
                 </div>
                 <Badge variant="outline" className="w-fit py-1 px-3 flex gap-2 border-primary text-primary">
                     <MapPin size={14} /> {businessData.address}

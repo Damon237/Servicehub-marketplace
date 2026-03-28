@@ -11,7 +11,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-// 1. Logic Component (The Date Picker)
 import { Calendar } from "@/components/ui/calendar"; 
 import { Button } from '@/components/ui/button';
 import GlobalApi from '@/app/_services/GlobalApi';
@@ -19,31 +18,23 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import moment from 'moment';
 
-// 2. Visual Icons (Notice we rename Calendar to CalendarIcon here)
-import { MapPin, Loader2, Clock, Calendar as CalendarIcon, Wallet } from 'lucide-react'; 
+import { MapPin, Loader2, Calendar as CalendarIcon, Wallet } from 'lucide-react'; 
 import { calculateDistance } from '@/utils/distance';
 
 function BookingSection({ children, business }) {
-  const [date, setDate] = useState(new Date());
-  const [timeSlot, setTimeSlot] = useState([]);
-  const [selectedTime, setSelectedTime] = useState();
-  const [bookedSlot, setBookedSlot] = useState([]);
+  // Changed to range state to handle interval of days
+  const [dateRange, setDateRange] = useState({
+    from: new Date(),
+    to: moment().add(1, 'days').toDate()
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isPaying, setIsPaying] = useState(false); 
   const [distance, setDistance] = useState(null); 
   const { data: session } = useSession();
 
   useEffect(() => {
-    getTime();
     calculateUserDistance(); 
   }, [business]);
-
-  useEffect(() => {
-    if (date && business?.id) {
-      getBusinessBookedSlots();
-      setSelectedTime(null);
-    }
-  }, [date, business?.id]);
 
   const calculateUserDistance = () => {
     if (!navigator.geolocation) return;
@@ -64,8 +55,9 @@ function BookingSection({ children, business }) {
   };
 
   const handleBookingProcess = () => {
-    if (!business?.id || !selectedTime || !date || !session?.user?.email) {
-      toast.error('Please complete all fields and login');
+    // Check for range selection instead of single date/time
+    if (!business?.id || !dateRange?.from || !dateRange?.to || !session?.user?.email) {
+      toast.error('Please select a valid date interval and login');
       return;
     }
 
@@ -79,80 +71,42 @@ function BookingSection({ children, business }) {
     }, 2500);
   };
 
-  const getBusinessBookedSlots = () => {
-    if (!business?.id) return;
-    const formattedDate = moment(date).format('DD-MMM-YYYY'); 
-    GlobalApi.BusinessBookedSlot(business.id, formattedDate)
-      .then(resp => {
-        setBookedSlot(resp?.bookings || []);
-      })
-      .catch(error => {
-        console.error("❌ Error loading slots:", error);
-      });
-  };
+const saveBooking = async () => {
+  setIsLoading(true);
+  try {
+    // Format the dates as strings
+    const startDate = moment(dateRange.from).format('DD-MMM-YYYY');
+    const endDate = moment(dateRange.to).format('DD-MMM-YYYY');
+    
+    const resp = await GlobalApi.createIntervalBooking(
+      business.id,
+      startDate,
+      endDate,
+      session?.user?.email, // Ensure session exists
+      session?.user?.name || "Guest User"
+    );
 
-  const getTime = () => {
-    const timeList = [];
-    for (let i = 8; i <= 12; i++) {
-      timeList.push({ time: i + ':00 AM' });
-      timeList.push({ time: i + ':30 AM' });
+    if (resp) {
+      toast.success(`Service Booked from ${startDate} to ${endDate}! 🎉`);
+      // Optional: you could add a state to close the sheet here
     }
-    for (let i = 1; i <= 6; i++) {
-      timeList.push({ time: i + ':00 PM' });
-      timeList.push({ time: i + ':30 PM' });
-    }
-    setTimeSlot(timeList);
-  };
-
-  const isTimePast = (slotTime) => {
-    const today = moment().format('DD-MMM-YYYY');
-    const selectedDate = moment(date).format('DD-MMM-YYYY');
-    if (today === selectedDate) {
-      const currentTime = moment();
-      const slotTimeMoment = moment(slotTime, 'h:mm A');
-      return slotTimeMoment.isBefore(currentTime);
-    }
-    return false;
-  };
-
-  const saveBooking = async () => {
-    setIsLoading(true);
-    try {
-      const formattedDate = moment(date).format('DD-MMM-YYYY');
-      const resp = await GlobalApi.createNewBooking(
-        business.id,
-        formattedDate,
-        selectedTime,
-        session.user.email,
-        session.user.name
-      );
-
-      if (resp) {
-        toast.success('Service Booked successfully! 🎉');
-        setSelectedTime(null);
-        getBusinessBookedSlots();
-      }
-    } catch (error) {
-      console.error("❌ Save booking error:", error);
-      toast.error('Booking failed. Please check your connection.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isSlotBooked = (time) => {
-    return bookedSlot.some(item => item.time === time);
-  };
+  } catch (error) {
+    console.error("❌ Booking Error Details:", error);
+    toast.error('Booking failed. Check your API permissions or console for details.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div>
       <Sheet>
         <SheetTrigger asChild>{children}</SheetTrigger>
-        <SheetContent className="overflow-y-auto w-full sm:max-w-[500px] border-l-primary">
+        <SheetContent className="overflow-y-auto w-full sm:max-w-[500px] border-l-blue-500">
           <SheetHeader>
-            <SheetTitle className="text-2xl font-bold text-primary">Confirm Booking</SheetTitle>
+            <SheetTitle className="text-2xl font-bold text-blue-500">Confirm Booking</SheetTitle>
             <SheetDescription className="text-slate-500">
-              Complete the payment to secure your appointment with <strong>{business.name}</strong>.
+              Complete the payment to secure your interval with <strong> {business.name}</strong>.
             </SheetDescription>
           </SheetHeader>
 
@@ -163,52 +117,25 @@ function BookingSection({ children, business }) {
             </div>
           )}
 
-          {/* DATE SELECTION SECTION */}
+          {/* DATE RANGE SELECTION SECTION */}
           <div className="mt-6 space-y-4">
             <h2 className="font-semibold text-lg flex items-center gap-2">
-                {/* Changed to CalendarIcon to avoid duplication */}
-                <CalendarIcon className="h-5 w-5 text-primary" /> Select Date
+                <CalendarIcon className="h-5 w-5 text-blue-500" /> Select Date Interval
             </h2>
             <div className='flex justify-center w-full'>
-                {/* This is the actual UI Date Picker */}
                 <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => d && setDate(d)}
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={setDateRange}
                     className="rounded-xl border bg-white shadow-sm"
                     disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                 />
             </div>
-          </div>
-
-          {/* TIME SLOT SECTION */}
-          <div className="mt-6 space-y-4">
-            <h2 className="font-semibold text-lg flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" /> Available Hours
-            </h2>
-            <div className="grid grid-cols-3 gap-2">
-              {timeSlot.map((item, index) => {
-                const isBooked = isSlotBooked(item.time);
-                const isPast = isTimePast(item.time);
-                const isSelected = selectedTime === item.time;
-                
-                return (
-                  <Button
-                    key={index}
-                    disabled={isBooked || isPast || isLoading || isPaying}
-                    variant="outline"
-                    className={`
-                      rounded-lg p-2 text-[12px] font-medium transition-all duration-300
-                      ${isSelected ? 'bg-primary text-white scale-105' : 'hover:border-primary text-slate-600'}
-                      ${(isBooked || isPast) ? 'bg-slate-50 text-slate-300 border-slate-100' : ''}
-                    `}
-                    onClick={() => setSelectedTime(item.time)}
-                  >
-                    {item.time}
-                  </Button>
-                );
-              })}
-            </div>
+            {dateRange?.from && dateRange?.to && (
+                <p className="text-center text-sm text-blue-600 font-medium">
+                    {moment(dateRange.from).format('LL')} — {moment(dateRange.to).format('LL')}
+                </p>
+            )}
           </div>
 
           <SheetFooter className="mt-8 pb-10">
@@ -232,7 +159,7 @@ function BookingSection({ children, business }) {
                     </SheetClose>
                     <Button 
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg"
-                        disabled={!selectedTime || !date || isLoading || isPaying}
+                        disabled={!dateRange?.from || !dateRange?.to || isLoading || isPaying}
                         onClick={handleBookingProcess}
                     >
                         {isPaying ? (
