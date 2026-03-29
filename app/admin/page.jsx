@@ -62,16 +62,20 @@ function AdminDashboard() {
     const [bookingStatusFilter, setBookingStatusFilter] = useState('all');
 
     // CONFIGURATION
-    const ADMIN_EMAIL = "kemmoejunior043@gmail.com"; 
+    const AUTHORIZED_ADMINS = [
+        "kemmoejunior043@gmail.com",
+        "kemmoejunior9@gmail.com",
+        "kemmoejunioradebayor237@gmail.com"
+    ];
     const BOOKING_PRICE = 2000; 
 
     // SECURITY CHECK
     useEffect(() => {
         if (status === 'loading') return;
 
-        if (!session || session.user?.email !== ADMIN_EMAIL) {
-            toast.error("Unauthorized Access. Please login as Admin.");
-            router.push('/admin/login'); // Redirect to your custom login page
+        if (!session || !AUTHORIZED_ADMINS.includes(session.user?.email)) {
+            toast.error("Unauthorized Access.");
+            router.push('/admin/login');
         } else {
             fetchAdminData();
         }
@@ -218,7 +222,6 @@ function AdminDashboard() {
         </button>
     );
 
-    // Show Loader during session check or data fetch
     if (status === "loading" || loading) {
         return (
             <div className="h-screen flex items-center justify-center bg-white">
@@ -230,8 +233,7 @@ function AdminDashboard() {
         );
     }
 
-    // Double-check auth before rendering actual UI
-    if (!session || session.user?.email !== ADMIN_EMAIL) return null;
+    if (!session || !AUTHORIZED_ADMINS.includes(session.user?.email)) return null;
 
     return (
         <div className='flex min-h-screen bg-slate-50 text-slate-900'>
@@ -318,7 +320,47 @@ function AdminDashboard() {
                     </div>
                 )}
 
-                {/* Other tabs follow same structure as previous stable version */}
+                {activeTab === 'analysis' && (
+                    <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+                        <Card className="border-none shadow-sm bg-white p-6">
+                            <CardTitle className="text-sm font-bold text-slate-500 uppercase mb-6">Revenue Growth</CardTitle>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={stats.revenueChartData}>
+                                        <defs>
+                                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                                        <Tooltip />
+                                        <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </Card>
+                        <Card className="border-none shadow-sm bg-white p-6">
+                            <CardTitle className="text-sm font-bold text-slate-500 uppercase mb-6">System Distribution</CardTitle>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={stats.distributionData}>
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                                        <Tooltip cursor={{fill: 'transparent'}} />
+                                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                            {stats.distributionData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
                 {activeTab === 'providers' && (
                     <div className='space-y-4'>
                         <div className='flex justify-between items-center'>
@@ -352,6 +394,29 @@ function AdminDashboard() {
                                 </TableBody>
                             </Table>
                         </Card>
+                    </div>
+                )}
+
+                {activeTab === 'categories' && (
+                    <div className='space-y-4'>
+                        <div className='flex justify-end'>
+                            <Button onClick={()=>setIsCatModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 gap-2"><PlusCircle size={16}/> New Category</Button>
+                        </div>
+                        <div className='grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+                            {categories.map((cat) => (
+                                <Card key={cat.id} className="border-none shadow-sm bg-white overflow-hidden group">
+                                    <div className='p-6 flex flex-col items-center text-center'>
+                                        <div className='w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform'>
+                                            <Image src={cat.icon?.url} alt={cat.name} width={35} height={35} />
+                                        </div>
+                                        <h3 className='font-bold text-slate-800'>{cat.name}</h3>
+                                        <Button variant="ghost" size="sm" className='mt-4 text-red-400 hover:text-red-600 hover:bg-red-50' onClick={() => handleDeleteCategory(cat.id)}>
+                                            <Trash2 size={14} className='mr-2'/> Remove
+                                        </Button>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
