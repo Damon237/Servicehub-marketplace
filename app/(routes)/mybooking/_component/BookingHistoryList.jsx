@@ -39,15 +39,17 @@ function BookingHistoryList({ bookingHistory, type }) {
     });
   }
 
-  const isPastBooking = (bookingDate, bookingTime) => {
-    const bookingDateTime = moment(`${bookingDate} ${bookingTime}`, 'DD-MMM-YYYY h:mm A');
-    return moment().isAfter(bookingDateTime);
+  // MODIFIED LOGIC: Check if the CURRENT DATE is after the END DATE (booking.time)
+  const isPastBooking = (bookingEndDate) => {
+    if (!bookingEndDate) return false;
+    // We check if today is after the end of the booking interval (e.g., April 4)
+    const endOfBookingDay = moment(bookingEndDate, 'DD-MMM-YYYY').endOf('day');
+    return moment().isAfter(endOfBookingDay);
   };
 
-  // --- NEW LOGIC START ---
   const deletePastBookings = async () => {
     const pastBookings = bookingHistory.filter(booking => 
-      isPastBooking(booking.date, booking.time) || booking.bookingStatut === 'Completed'
+      isPastBooking(booking.time) || booking.bookingStatut === 'Completed'
     );
 
     if (pastBookings.length === 0) {
@@ -56,27 +58,24 @@ function BookingHistoryList({ bookingHistory, type }) {
     }
 
     try {
-      toast.loading("Clearing history...");
-      // Delete all filtered bookings in parallel
-      await Promise.all(pastBookings.map(booking => GlobalApi.deleteBooking(booking.id)));
-      toast.dismiss();
-      toast.success('History Cleared Successfully!');
-      window.location.reload();
+      toast.loading("Clearing history...", { id: 'clear-toast' });
+      for (const booking of pastBookings) {
+        await GlobalApi.deleteBooking(booking.id);
+      }
+      toast.success('History Cleared Successfully!', { id: 'clear-toast' });
+      setTimeout(() => { window.location.reload(); }, 1000);
     } catch (e) {
-      toast.dismiss();
+      toast.error('Failed to clear some records.', { id: 'clear-toast' });
       console.error("Batch Delete Error:", e);
-      toast.error('Failed to clear some records.');
     }
   }
 
   const hasCompletedBookings = bookingHistory?.some(booking => 
-    isPastBooking(booking.date, booking.time) || booking.bookingStatut === 'Completed'
+    isPastBooking(booking.time) || booking.bookingStatut === 'Completed'
   );
-  // --- NEW LOGIC END ---
 
   return (
     <div className='mt-5'>
-      {/* CLEAR HISTORY HEADER */}
       {bookingHistory?.length > 0 && hasCompletedBookings && (
         <div className='flex justify-end mb-4'>
            <AlertDialog>
@@ -113,7 +112,8 @@ function BookingHistoryList({ bookingHistory, type }) {
                           ? booking.businessList[0] 
                           : booking.businessList;
           
-          const isExpired = isPastBooking(booking.date, booking.time);
+          // CRITICAL FIX: isExpired now looks at the END DATE (booking.time)
+          const isExpired = isPastBooking(booking.time);
           const isStatusCompleted = booking.bookingStatut === 'Completed';
           const isPostponed = booking.bookingStatut === 'Postponed';
 
@@ -137,9 +137,9 @@ function BookingHistoryList({ bookingHistory, type }) {
                               <CheckCircle size={10} /> Completed
                              </span>
                           )}
-                          {isPostponed && !isStatusCompleted && (
-                             <span className='text-[10px] bg-orange-100 text-orange-700 px-2 py-1 rounded-full flex items-center gap-1 font-bold border border-orange-200'>
-                              <AlertCircle size={10} /> Postponed
+                          {!isExpired && !isStatusCompleted && (
+                             <span className='text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full flex items-center gap-1 font-bold border border-blue-200'>
+                              <Clock size={10} /> Upcoming
                              </span>
                           )}
                       </div>
@@ -170,16 +170,7 @@ function BookingHistoryList({ bookingHistory, type }) {
                   </div>
               )}
 
-              {isPostponed && booking.postponeReason && (
-                  <div className='mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex gap-2 items-start'>
-                      <AlertCircle className='text-orange-500 h-4 w-4 mt-0.5 flex-shrink-0' />
-                      <div className='flex flex-col'>
-                          <p className='text-[11px] font-bold text-orange-700 uppercase'>Note from Artisan:</p>
-                          <p className='text-sm text-orange-800 italic'>"{booking.postponeReason}"</p>
-                      </div>
-                  </div>
-              )}
-
+              {/* ACTION BUTTONS */}
               {type === 'booked' && !isExpired && !isStatusCompleted ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -207,10 +198,11 @@ function BookingHistoryList({ bookingHistory, type }) {
                 </AlertDialog>
               ) : (
                   <div className='mt-5 py-2 px-4 bg-slate-100 rounded-lg text-center'>
-                      <p className='text-xs text-slate-500 font-medium'>Booking is finalized</p>
+                      <p className='text-xs text-slate-500 font-medium'>
+                        {isExpired ? "Service Completed" : "Booking is finalized"}
+                      </p>
                   </div>
               )}
-             
             </div>
           )
         }) : (

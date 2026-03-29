@@ -1,244 +1,212 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import GlobalApi from '@/app/_services/GlobalApi'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from '@/components/ui/button' 
-import { Loader2, CalendarDays, User, Clock, MapPin, Briefcase, CheckCircle2, Timer } from "lucide-react"
+import { Loader2, CalendarDays, User, Clock, MapPin, Briefcase, CheckCircle2, Timer, History, Star, TrendingUp, ShieldAlert } from "lucide-react"
 import { toast } from 'sonner' 
 import EditProfile from './_components/EditProfile'
 
 function ProviderDashboard() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+    const router = useRouter();
+    
     const [businessData, setBusinessData] = useState(null);
     const [bookings, setBookings] = useState([]);
+    const [reviews, setReviews] = useState([]); 
     const [loading, setLoading] = useState(true);
 
+    // SECURITY & DATA FETCHING
     useEffect(() => {
-        if (session?.user?.email) {
-            getProviderInitialData();
-        }
-    }, [session]);
+        const verifyAndFetch = async () => {
+            if (status === 'loading') return;
 
-    /**
-     * Fetches artisan business profile and all associated bookings
-     */
-    const getProviderInitialData = async () => {
-        if (!session?.user?.email) return;
-        
-        setLoading(true);
-        try {
-            // 1. Get the Business Profile
-            const business = await GlobalApi.getBusinessByEmail(session.user.email);
-            setBusinessData(business);
-
-            if (business) {
-                // 2. Get all bookings connected to this business email
-                const resp = await GlobalApi.getBookingHistoryByBusinessEmail(session.user.email);
-                
-                if (resp && resp.bookings) {
-                    // This now correctly holds multiple records from different users
-                    setBookings(resp.bookings);
-                } else {
-                    setBookings([]);
-                }
+            // 1. Check if user is logged in at all
+            if (!session) {
+                router.push('/provider/login');
+                return;
             }
-        } catch (error) {
-            console.error("Dashboard Fetch Error:", error);
-            toast.error("Error connecting to database. Verify Hygraph Schema.");
-        } finally {
-            setLoading(false);
-        }
-    }
 
-    /**
-     * MARK AS COMPLETED
-     */
+            try {
+                setLoading(true);
+                // 2. Verify if this email is actually a registered Provider
+                const business = await GlobalApi.getBusinessByEmail(session.user.email);
+                
+                if (!business) {
+                    toast.error("Access Denied. You are not registered as an Artisan.");
+                    router.push('/'); // Redirect to home or a "Become a Pro" page
+                    return;
+                }
+
+                setBusinessData(business);
+
+                // 3. Fetch Related Data
+                const [bookResp, reviewResp] = await Promise.all([
+                    GlobalApi.getBookingHistoryByBusinessEmail(session.user.email),
+                    GlobalApi.getBusinessReviews(business.id)
+                ]);
+
+                setBookings(bookResp?.bookings || []);
+                setReviews(reviewResp || []);
+
+            } catch (error) {
+                console.error("Dashboard Error:", error);
+                toast.error("Failed to load dashboard data.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        verifyAndFetch();
+    }, [session, status, router]);
+
+    const calculateDynamicRating = () => {
+        if (!reviews || reviews.length === 0) return "0.0";
+        const totalStars = reviews.reduce((acc, rev) => acc + rev.rating, 0);
+        return (totalStars / reviews.length).toFixed(1);
+    };
+
     const onCompleteBooking = async (bookingId) => {
         try {
             await GlobalApi.updateBookingStatus(bookingId, 'Completed');
             toast.success("Service marked as Completed!");
-            getProviderInitialData(); 
+            refreshData(); 
         } catch (e) {
-            console.error(e);
-            toast.error("Error updating status");
+            toast.error("Error updating status.");
         }
     }
 
-    /**
-     * POSTPONE WITH REASON
-     */
     const onPostponeBooking = async (bookingId) => {
-        const reason = window.prompt("Enter the reason for postponing (Visible to client):");
+        const reason = window.prompt("Enter reason for postponement:");
         if (!reason) return;
-
         try {
             await GlobalApi.updateBookingStatus(bookingId, 'Postponed', reason);
-            toast.success("Booking postponed. Client notified!");
-            getProviderInitialData(); 
+            toast.success("Booking postponed.");
+            refreshData(); 
         } catch (e) {
-            console.error(e);
             toast.error("Error updating status");
         }
     }
 
-    if (loading) {
-        return (
-            <div className='flex items-center justify-center h-[500px]'>
-                <Loader2 className='animate-spin text-primary' size={40} />
-            </div>
-        )
-    }
+    const refreshData = async () => {
+        const resp = await GlobalApi.getBookingHistoryByBusinessEmail(session.user.email);
+        setBookings(resp?.bookings || []);
+    };
 
-    if (!businessData) {
-        return (
-            <div className='p-10 text-center flex flex-col items-center gap-4'>
-                <Briefcase size={60} className='text-gray-300' />
-                <h2 className='text-2xl font-bold'>Professional Account Required</h2>
-                <p className='text-gray-500 max-w-md'>
-                    The email <strong>{session?.user?.email}</strong> is not associated with a Service Provider profile.
-                </p>
-            </div>
-        )
-    }
+    const activeBookings = bookings.filter(b => b.bookingStatut !== 'Completed');
+    const completedBookings = bookings.filter(b => b.bookingStatut === 'Completed');
+
+    // UI LOADERS
+    if (status === "loading" || loading) return (
+        <div className='flex flex-col items-center justify-center h-screen gap-4'>
+            <Loader2 className='animate-spin text-blue-600' size={40} />
+            <p className='text-slate-500 animate-pulse font-medium'>Authenticating Artisan Portal...</p>
+        </div>
+    );
+
+    if (!businessData) return null; // Prevent flicker before redirect
 
     return (
         <div className='p-5 md:p-10 max-w-7xl mx-auto'>
-            {/* Header Section */}
-            <div className='flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4'>
-                <div>
-                    <h1 className='text-3xl font-bold text-primary flex items-center gap-2'>
-                        <Briefcase className='text-primary' /> Provider Dashboard
-                    </h1>
-                    <p className='text-gray-600 font-medium'>Welcome back, <span className="text-xl text-blue-500"> {businessData.contactPerson}</span>  ({businessData.name})</p>
-                </div>
-                <Badge variant="outline" className="w-fit py-1 px-3 flex gap-2 border-primary text-primary">
-                    <MapPin size={14} /> {businessData.address}
-                </Badge>
+            {/* Header */}
+<div className='flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4'>
+    <div>
+        <h1 className='text-3xl font-extrabold text-slate-800 flex items-center gap-2'>
+            <Briefcase className='text-blue-600' /> Artisan Dashboard
+        </h1>
+        {/* We use businessData.name for the business name and businessData.contactPerson for the individual */}
+        <div className='mt-2'>
+            <span className='text-lg font-medium text-slate-700'>
+                Welcome Back, <span className='text-blue-600 font-bold text-xl'>{businessData.contactPerson}</span>
+            </span>
+            <p className='text-sm text-slate-400 font-semibold uppercase tracking-wider'>
+                {businessData.name}
+            </p>
+        </div>
+        <p className='text-slate-500 mt-1'>Manage your professional services and requests</p>
+    </div>
+    <div className='flex items-center gap-3'>
+       <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 px-4 py-1.5 shadow-sm rounded-full">
+            <MapPin size={14} className="mr-1 text-blue-500" /> {businessData.address}
+        </Badge>
+    </div>
+</div>
+
+            {/* STATS CARDS */}
+            <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-10'>
+                <Card className="border-none shadow-sm bg-white border-l-4 border-l-blue-500">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">New Requests</CardTitle>
+                        <Timer className="h-4 w-4 text-blue-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-slate-800">{activeBookings.length}</div>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">PENDING SERVICES</p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white border-l-4 border-l-emerald-500">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Jobs Done</CardTitle>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-slate-800">{completedBookings.length}</div>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">LIFETIME COMPLETED</p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white border-l-4 border-l-amber-500">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Performance</CardTitle>
+                        <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-slate-800 flex items-baseline gap-1">
+                            {calculateDynamicRating()} 
+                            <span className="text-sm font-normal text-slate-400">/ 5.0</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">FROM {reviews.length} REVIEWS</p>
+                    </CardContent>
+                </Card>
             </div>
 
-            <Tabs defaultValue="bookings" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 md:w-[400px] mb-8">
-                    <TabsTrigger value="bookings">Incoming Bookings</TabsTrigger>
-                    <TabsTrigger value="profile">Profile Settings</TabsTrigger>
+            <Tabs defaultValue="incoming" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 md:w-[500px] mb-8 bg-slate-100 p-1 rounded-xl">
+                    <TabsTrigger value="incoming" className="rounded-lg">Active Schedule</TabsTrigger>
+                    <TabsTrigger value="history" className="rounded-lg">History</TabsTrigger>
+                    <TabsTrigger value="profile" className="rounded-lg">Profile</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="bookings" className="space-y-6">
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
-                        <Card className="border-l-4 border-l-blue-500 shadow-sm">
-                            <CardHeader className="pb-2">
-                                <CardDescription className="text-sm font-medium">Total Service Requests</CardDescription>
-                                <CardTitle className="text-3xl font-bold">{bookings.length}</CardTitle>
-                            </CardHeader>
-                        </Card>
-                        <Card className="border-l-4 border-l-primary shadow-sm">
-                            <CardHeader className="pb-2">
-                                <CardDescription className="text-sm font-medium">Active Category</CardDescription>
-                                <CardTitle className="text-3xl font-bold text-primary">{businessData.category?.name}</CardTitle>
-                            </CardHeader>
-                        </Card>
-                    </div>
+                <TabsContent value="incoming">
+                    <BookingTable 
+                        data={activeBookings} 
+                        onComplete={onCompleteBooking} 
+                        onPostpone={onPostponeBooking}
+                        isHistory={false} 
+                    />
+                </TabsContent>
 
-                    <Card className="shadow-sm border-none bg-white">
-                        <CardHeader>
-                            <CardTitle className="text-xl">Appointment Ledger</CardTitle>
-                            <CardDescription>Track and update your client schedule in real-time.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="px-0 sm:px-6">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-slate-50">
-                                        <TableHead className="font-bold">Customer Details</TableHead>
-                                        <TableHead className="font-bold">Date & Time</TableHead>
-                                        <TableHead className="font-bold">Live Status</TableHead>
-                                        <TableHead className="text-right font-bold">Workflow Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {bookings.length > 0 ? bookings.map((booking, index) => (
-                                        <TableRow key={index} className="hover:bg-slate-50/50 transition-colors">
-                                            <TableCell className="font-medium">
-                                                <div className='flex items-center gap-3'>
-                                                    <div className='bg-primary/10 p-2 rounded-full hidden sm:block'>
-                                                        <User size={16} className='text-primary' />
-                                                    </div>
-                                                    <div>
-                                                        <p className='font-bold text-slate-700'>{booking.userName}</p>
-                                                        <p className='text-xs text-slate-400'>{booking.userEmail}</p>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className='flex flex-col gap-1'>
-                                                    <span className='text-sm flex items-center gap-1 font-medium text-slate-600'>
-                                                        <CalendarDays size={14} className='text-primary'/> {booking.date}
-                                                    </span>
-                                                    <span className='text-xs flex items-center gap-1 text-slate-500'>
-                                                        <Clock size={14} className='text-primary'/> {booking.time}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className={`
-                                                    ${booking.bookingStatut === 'Completed' ? 'bg-green-100 text-green-700 border-green-200' : 
-                                                      booking.bookingStatut === 'Postponed' ? 'bg-orange-100 text-orange-700 border-orange-200' : 
-                                                      'bg-blue-100 text-blue-700 border-blue-200'} border shadow-none px-3`}
-                                                >
-                                                    {booking.bookingStatut || 'Confirmed'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                {booking.bookingStatut !== 'Completed' ? (
-                                                    <div className='flex justify-end gap-2'>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="h-8 text-green-600 border-green-200 hover:bg-green-600 hover:text-white transition-all"
-                                                            onClick={() => onCompleteBooking(booking.id)}
-                                                        >
-                                                            <CheckCircle2 size={14} className="mr-1" /> Done
-                                                        </Button>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="h-8 text-orange-600 border-orange-200 hover:bg-orange-600 hover:text-white transition-all"
-                                                            onClick={() => onPostponeBooking(booking.id)}
-                                                        >
-                                                            <Timer size={14} className="mr-1" /> Postpone
-                                                        </Button>
-                                                    </div>
-                                                ) : (
-                                                    <span className='text-xs text-slate-400 italic'>Transaction Finalized</span>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="text-center py-24 text-gray-400">
-                                                <CalendarDays className='mx-auto mb-4 opacity-10' size={60} />
-                                                <p className='text-lg font-medium'>No active service requests found.</p>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+                <TabsContent value="history">
+                    <BookingTable 
+                        data={completedBookings} 
+                        isHistory={true} 
+                    />
                 </TabsContent>
 
                 <TabsContent value="profile">
-                    <Card className="border-none shadow-sm">
+                    <Card className="border-none shadow-sm bg-white rounded-2xl">
                         <CardHeader>
-                            <CardTitle>Business Configuration</CardTitle>
+                            <CardTitle className="text-lg">Professional Settings</CardTitle>
+                            <CardDescription>Update your public business information</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <EditProfile 
-                                businessData={businessData} 
-                                onUpdate={getProviderInitialData} 
-                            />
+                            <EditProfile businessData={businessData} onUpdate={() => router.refresh()} />
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -247,4 +215,71 @@ function ProviderDashboard() {
     )
 }
 
-export default ProviderDashboard
+function BookingTable({ data, onComplete, onPostpone, isHistory }) {
+    return (
+        <Card className="shadow-sm border-none overflow-hidden rounded-2xl bg-white">
+            <CardContent className="p-0">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+                            <TableHead className="font-bold pl-6 text-slate-500">CLIENT DETAILS</TableHead>
+                            <TableHead className="font-bold text-slate-500">SCHEDULE</TableHead>
+                            <TableHead className="font-bold text-center text-slate-500">STATUS</TableHead>
+                            {!isHistory && <TableHead className="text-right font-bold pr-6 text-slate-500">ACTIONS</TableHead>}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.length > 0 ? data.map((booking, index) => (
+                            <TableRow key={index} className="hover:bg-slate-50/30 transition-colors">
+                                <TableCell className="pl-6 py-4">
+                                    <p className='font-bold text-slate-700'>{booking.userName}</p>
+                                    <p className='text-[11px] text-slate-400'>{booking.userEmail}</p>
+                                </TableCell>
+                                <TableCell>
+                                    <div className='text-[12px] text-slate-600 space-y-1.5'>
+                                        <div className='flex items-center gap-2'><CalendarDays size={13} className='text-blue-500'/> {booking.date}</div>
+                                        <div className='flex items-center gap-2 font-bold text-slate-800'><Clock size={13} className='text-amber-500'/> {booking.time}</div>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    <Badge className={
+                                        booking.bookingStatut === 'Completed' 
+                                        ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-50 border-none px-3' 
+                                        : 'bg-blue-50 text-blue-600 hover:bg-blue-50 border-none px-3'
+                                    }>
+                                        {booking.bookingStatut || 'Confirmed'}
+                                    </Badge>
+                                </TableCell>
+                                {!isHistory && (
+                                    <TableCell className="text-right pr-6">
+                                        <div className='flex justify-end gap-2'>
+                                            <Button size="icon" variant="outline" className="h-8 w-8 text-emerald-600 border-emerald-100 hover:bg-emerald-50" onClick={() => onComplete(booking.id)}>
+                                                <CheckCircle2 size={16} />
+                                            </Button>
+                                            <Button size="icon" variant="outline" className="h-8 w-8 text-amber-600 border-amber-100 hover:bg-amber-50" onClick={() => onPostpone(booking.id)}>
+                                                <Timer size={16} />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                )}
+                            </TableRow>
+                        )) : (
+                            <TableRow>
+                                <TableCell colSpan={isHistory ? 3 : 4} className="text-center py-24">
+                                    <div className='flex flex-col items-center gap-2'>
+                                        <div className='p-3 bg-slate-50 rounded-full'>
+                                            <History className='text-slate-200' size={30} />
+                                        </div>
+                                        <p className='text-slate-400 text-sm font-medium'>No service records found.</p>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default ProviderDashboard;

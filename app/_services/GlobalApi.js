@@ -22,7 +22,7 @@ const getCategory = async () => {
 const getAllBusinessList = async () => {
   const query = gql`
     query BusinessList {
-      businessLists(first: 100) { 
+      businessLists(first: 100, orderBy: createdAt_DESC) { 
         about 
         address 
         category { name } 
@@ -31,6 +31,7 @@ const getAllBusinessList = async () => {
         images { url } 
         id 
         name
+        createdAt  
         location { latitude longitude }
       }
     }
@@ -180,12 +181,52 @@ const updateBookingStatusAndReason = async (bookingId, status, reason = "") => {
 
 const updateBusinessProfile = async (id, data) => {
   const mutation = gql`
-    mutation UpdateBusiness($id: ID!, $about: String, $address: String, $name: String) {
-      updateBusinessList(where: { id: $id }, data: { about: $about, address: $address, name: $name }) { id }
-      publishBusinessList(where: { id: $id }) { id }
+    mutation UpdateBusiness(
+      $id: ID!, 
+      $about: String, 
+      $address: String, 
+      $name: String, 
+      $contactPerson: String, 
+      $phone: Int, 
+      $email: String, 
+      # Added '!' here to match your schema's required Float type
+      $lat: Float!, 
+      $lng: Float!
+    ) {
+      updateBusinessList(
+        where: { id: $id }, 
+        data: { 
+          about: $about, 
+          address: $address, 
+          name: $name, 
+          contactPerson: $contactPerson, 
+          phone: $phone, 
+          email: $email,
+          location: { latitude: $lat, longitude: $lng }
+        }
+      ) { 
+        id 
+      }
+      publishBusinessList(where: { id: $id }, to: [PUBLISHED]) { 
+        id 
+      }
     }
   `;
-  return executeQuery(mutation, { id, ...data });
+  
+  const variables = { 
+    id, 
+    about: data.about || "",
+    address: data.address || "",
+    name: data.name || "",
+    contactPerson: data.contactPerson || "",
+    email: data.email || "",
+    phone: data.phone ? parseInt(data.phone) : 0,
+    // Ensure these are never null/undefined since the schema requires Float!
+    lat: data.lat ? parseFloat(data.lat) : 4.0511, 
+    lng: data.lng ? parseFloat(data.lng) : 9.7679
+  };
+
+  return executeQuery(mutation, variables);
 };
 
 const updateBookingStatus = async (bookingId, status, reason = "") => {
@@ -328,8 +369,17 @@ const getAllBookingsAdmin = async () => {
   const query = gql`
     query GetAllBookings {
       bookings(orderBy: publishedAt_DESC) {
-        id userName userEmail date time bookingStatut
-        businessList { name }
+        id 
+        userName 
+        userEmail 
+        date 
+        time 
+        bookingStatut
+        createdAt   
+        publishedAt  
+        businessList { 
+          name 
+        }
       }
     }
   `;
@@ -367,12 +417,14 @@ const createNewBusiness = async (data) => {
         phone: $phone,
         category: { connect: { id: $categoryId } },
         images: { connect: [{ id: $imageId }] } 
-      }) { id }
+      }) { 
+        id 
+        createdAt 
+      }
     }
   `;
 
   // 2. Execute the Create Mutation
-  // Ensure phone is a Number to match the $phone: Int! type
   const createResult = await executeQuery(createMutation, {
     ...data,
     phone: parseInt(data.phone) 
@@ -386,6 +438,7 @@ const createNewBusiness = async (data) => {
       mutation PublishBusiness($id: ID!) {
         publishBusinessList(where: { id: $id }, to: [PUBLISHED]) { 
           id 
+          createdAt 
         }
       }
     `;

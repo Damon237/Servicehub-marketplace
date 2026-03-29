@@ -33,7 +33,7 @@ function BusinessList({ businessList = [], title }) {
             biz.location.latitude, 
             biz.location.longitude
           );
-          return dist <= 15; // Within 15km
+          return dist <= 5; // Within 5km
         }
         return false;
       });
