@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { 
     Users, LayoutGrid, Trash2, PlusCircle, Loader2, Edit,
-    IndianRupee, Eye, Calendar, XCircle, LayoutDashboard, CheckCircle, Clock, Filter, Plus, Building2, TrendingUp, BarChart3
+    IndianRupee, Eye, Calendar, XCircle, LayoutDashboard, CheckCircle, Clock, Filter, Plus, Building2, TrendingUp, BarChart3, Search, X
 } from 'lucide-react'
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell 
@@ -60,6 +60,7 @@ function AdminDashboard() {
 
     const [providerCategoryFilter, setProviderCategoryFilter] = useState('all');
     const [bookingStatusFilter, setBookingStatusFilter] = useState('all');
+    const [bookingSearchTerm, setBookingSearchTerm] = useState('');
 
     // CONFIGURATION
     const AUTHORIZED_ADMINS = [
@@ -96,6 +97,23 @@ function AdminDashboard() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCancelBooking = (bookingId) => {
+        setConfirmDialog({
+            open: true,
+            title: "Cancel Booking?",
+            desc: "Are you sure you want to cancel this customer's booking? This action is permanent.",
+            onConfirm: async () => {
+                try {
+                    await GlobalApi.deleteBooking(bookingId);
+                    toast.success("Booking cancelled successfully");
+                    fetchAdminData();
+                } catch (error) {
+                    toast.error("Failed to cancel booking");
+                }
+            }
+        });
     };
 
     const handleAddProvider = async () => {
@@ -166,49 +184,89 @@ function AdminDashboard() {
         });
     }
 
-    const calculateStats = () => {
-        const now = moment();
-        const todayStr = now.format('DD-MMM-YYYY');
+
+const calculateStats = () => {
+    const now = moment().startOf('day'); 
+
+    const getBookingPrice = (item) => {
+        if (!item.date || !item.time) return 2000;
         
-        const completedBookings = bookings.filter(item => {
-            const bookingDateTime = moment(`${item.date} ${item.time}`, 'DD-MMM-YYYY h:mm A');
-            return item.bookingStatut === 'Completed' || now.isAfter(bookingDateTime);
-        });
+        // Parse dates exactly as stored ('DD-MMM-YYYY')
+        const start = moment(item.date, 'DD-MMM-YYYY').startOf('day');
+        const end = moment(item.time, 'DD-MMM-YYYY').startOf('day');
+        
+        // Calculate total inclusive days
+        const totalDays = end.diff(start, 'days') + 1;
+        
+        let price = 2000; 
+        if (totalDays > 3) {
+            const extraDays = totalDays - 3;
+            price = 2000 + (extraDays * 500); 
+        }
+        return price;
+    };
+    
+    // 1. Total Revenue: Sum of every booking in the system
+    const totalRevenue = bookings.reduce((acc, item) => acc + getBookingPrice(item), 0);
+    
+    // 2. Today's Revenue: SUMS all bookings that were CREATED today
+    const todayRevenue = bookings
+        .filter(item => {
+            // Using createdAt ensures we count the money the moment it is paid
+            // regardless of when the actual service starts.
+            if (!item.createdAt) {
+                // Fallback: Check if the service starts today if createdAt is missing
+                return moment(item.date, 'DD-MMM-YYYY').isSame(now, 'day');
+            }
+            return moment(item.createdAt).isSame(now, 'day');
+        })
+        .reduce((acc, item) => acc + getBookingPrice(item), 0);
 
-        const completedCount = completedBookings.length;
-        const pendingCount = bookings.length - completedCount;
-        const totalRevenue = bookings.length * BOOKING_PRICE;
-        const todayRevenue = bookings.filter(item => item.date === todayStr).length * BOOKING_PRICE;
+    // 3. Completed Bookings logic
+    const completedBookings = bookings.filter(item => {
+        const isStatusDone = item.bookingStatut?.toLowerCase() === 'completed';
+        const bookingEndDate = moment(item.time, 'DD-MMM-YYYY').endOf('day');
+        return isStatusDone || moment().isAfter(bookingEndDate);
+    });
 
-        const dailyRevenue = completedBookings.reduce((acc, item) => {
-            acc[item.date] = (acc[item.date] || 0) + BOOKING_PRICE;
-            return acc;
-        }, {});
+    // 4. Chart Data logic
+    const dailyRevenueMap = completedBookings.reduce((acc, item) => {
+        const price = getBookingPrice(item);
+        const dateKey = item.date; 
+        acc[dateKey] = (acc[dateKey] || 0) + price; 
+        return acc;
+    }, {});
 
-        const sortedDates = Object.keys(dailyRevenue).sort((a, b) => 
-            moment(a, 'DD-MMM-YYYY').diff(moment(b, 'DD-MMM-YYYY'))
-        );
+    const sortedDates = Object.keys(dailyRevenueMap).sort((a, b) => 
+        moment(a, 'DD-MMM-YYYY').diff(moment(b, 'DD-MMM-YYYY'))
+    );
 
-        let cumulativeSum = 0;
-        const revenueChartData = sortedDates.map(date => {
-            cumulativeSum += dailyRevenue[date];
-            return {
-                date: moment(date, 'DD-MMM-YYYY').format('MMM DD'),
-                revenue: cumulativeSum
-            };
-        });
+    let cumulativeSum = 0;
+    const revenueChartData = sortedDates.map(date => {
+        cumulativeSum += dailyRevenueMap[date];
+        return {
+            date: moment(date, 'DD-MMM-YYYY').format('MMM DD'),
+            revenue: cumulativeSum
+        };
+    });
 
-        const distributionData = [
+    return { 
+        completedCount: completedBookings.length, 
+        pendingCount: bookings.length - completedBookings.length, 
+        totalRevenue, 
+        todayRevenue, 
+        revenueChartData, 
+        distributionData: [
             { name: 'Providers', value: businesses.length, color: '#3b82f6' },
             { name: 'Categories', value: categories.length, color: '#a855f7' },
-            { name: 'Completed', value: completedCount, color: '#10b981' },
-            { name: 'Pending', value: pendingCount, color: '#f59e0b' },
-        ];
-
-        return { completedCount, pendingCount, totalRevenue, todayRevenue, revenueChartData, distributionData };
+            { name: 'Completed', value: completedBookings.length, color: '#10b981' },
+            { name: 'Pending', value: (bookings.length - completedBookings.length), color: '#f59e0b' },
+        ],
+        getBookingPrice 
     };
+};
+    const stats=useMemo(() => calculateStats(), [bookings, businesses, categories]);
 
-    const stats = calculateStats();
 
     const renderSidebarItem = (id, label, icon) => (
         <button 
@@ -252,7 +310,7 @@ function AdminDashboard() {
 
             {/* Sidebar */}
             <div className='w-64 bg-white border-r p-6 hidden md:flex flex-col gap-2'>
-                <div className='text-2xl font-extrabold text-blue-600 mb-10 px-2 text-center tracking-tighter'>SERVICEHUB</div>
+                <div className='text-2xl font-extrabold text-slate-600 mb-10 px-2 text-center tracking-tighter'>ADMIN SIDEBAR</div>
                 {renderSidebarItem('dashboard', 'Dashboard', <LayoutDashboard size={18}/>)}
                 {renderSidebarItem('analysis', 'Analysis', <BarChart3 size={18}/>)}
                 {renderSidebarItem('providers', 'All Providers', <Users size={18}/>)}
@@ -279,11 +337,27 @@ function AdminDashboard() {
                 {activeTab === 'dashboard' && (
                     <div className='space-y-8'>
                         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                            <StatCard title="Total Revenue" value={`${stats.totalRevenue.toLocaleString()} XAF`} icon={<TrendingUp className="text-green-600"/>} />
-                            <StatCard title="Revenue Today" value={`${stats.todayRevenue.toLocaleString()} XAF`} icon={<IndianRupee className="text-emerald-500"/>} />
-                            <StatCard title="Total Providers" value={businesses.length} icon={<Users className="text-blue-500"/>} />
-                            <StatCard title="Total Categories" value={categories.length} icon={<LayoutGrid className="text-purple-500"/>} />
-                        </div>
+    <StatCard 
+        title="Total Revenue" 
+        value={`${stats.totalRevenue.toLocaleString()} XAF`} 
+        icon={<TrendingUp className="text-green-600"/>} 
+    />
+    <StatCard 
+        title="Today's Revenue" 
+        value={`${stats.todayRevenue.toLocaleString()} XAF`} 
+        icon={<IndianRupee className="text-emerald-500"/>} 
+    />
+    <StatCard 
+        title="Total Providers" 
+        value={businesses.length} 
+        icon={<Users className="text-blue-500"/>} 
+    />
+    <StatCard 
+        title="Total Categories" 
+        value={categories.length} 
+        icon={<LayoutGrid className="text-purple-500"/>} 
+    />
+</div>
 
                         <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
                             <StatCard title="Total Bookings" value={bookings.length} icon={<Calendar className="text-slate-500"/>} />
@@ -302,15 +376,33 @@ function AdminDashboard() {
                                             <TableHead>Amount</TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                    <TableBody>
-                                        {bookings.slice(0, 8).map((book, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="pl-6 font-medium">{book.userName}</TableCell>
-                                                <TableCell className='text-sm'>{book.businessList?.name}</TableCell>
-                                                <TableCell className="text-green-600 font-bold">+{BOOKING_PRICE} XAF</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
+                                   <TableBody>
+    {bookings.slice(0, 8).map((book, index) => {
+        // Calculate dynamic price using startOf('day') for accuracy
+        const start = moment(book.date, 'DD-MMM-YYYY').startOf('day');
+        const end = moment(book.time, 'DD-MMM-YYYY').startOf('day');
+        const days = end.diff(start, 'days') + 1;
+
+        // Base price: 2000 XAF for the first 3 days
+        let actualPrice = 2000;
+        
+        // Add 500 XAF for every day starting from the 4th day
+        if (days > 3) {
+            const extraDays = days - 3;
+            actualPrice = 2000 + (extraDays * 500);
+        }
+
+        return (
+            <TableRow key={index}>
+                <TableCell className="pl-6 font-medium">{book.userName}</TableCell>
+                <TableCell className='text-sm'>{book.businessList?.name}</TableCell>
+                <TableCell className="text-green-600 font-bold">
+                    +{actualPrice.toLocaleString()} XAF
+                </TableCell>
+            </TableRow>
+        );
+    })}
+</TableBody>
                                 </Table>
                             </Card>
                             <div className='lg:col-span-1'>
@@ -361,6 +453,118 @@ function AdminDashboard() {
                     </div>
                 )}
 
+                {activeTab === 'bookings' && (
+    <div className='space-y-4'>
+        <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border shadow-sm'>
+            <div className='flex items-center gap-3 w-full md:w-auto'>
+                <Search size={18} className='text-slate-400'/>
+                <Input 
+                    placeholder="Search client, service or email..." 
+                    className="border-none focus-visible:ring-0 w-full md:w-80" 
+                    onChange={(e) => setBookingSearchTerm(e.target.value.toLowerCase())}
+                />
+            </div>
+            <div className='flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0'>
+                {['all', 'Booked', 'Completed'].map((status) => (
+                    <Button 
+                        key={status}
+                        variant={bookingStatusFilter === status ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setBookingStatusFilter(status)}
+                        className="capitalize whitespace-nowrap"
+                    >
+                        {status}
+                    </Button>
+                ))}
+            </div>
+        </div>
+        <Card className="rounded-xl shadow-sm border-none overflow-hidden bg-white">
+            <Table>
+                <TableHeader className="bg-slate-50">
+                    <TableRow>
+                        <TableHead className="pl-6">Client Info</TableHead>
+                        <TableHead>Service & Provider</TableHead>
+                        <TableHead>Appointment</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right pr-6">Action</TableHead>
+                    </TableRow>
+                </TableHeader>
+                
+<TableBody>
+    {bookings
+        .filter(b => {
+            const status = b.bookingStatut?.toLowerCase();
+            const bookingEndDate = moment(b.time, 'DD-MMM-YYYY').endOf('day');
+            const isPast = moment().isAfter(bookingEndDate);
+
+            // Determine effective status for filtering
+            let effectiveStatus = status;
+            if (isPast || status === 'completed') effectiveStatus = 'completed';
+
+            if (bookingStatusFilter === 'all') return true;
+            return effectiveStatus === bookingStatusFilter.toLowerCase();
+        })
+        .filter(b => 
+            b.userName?.toLowerCase().includes(bookingSearchTerm) || 
+            b.userEmail?.toLowerCase().includes(bookingSearchTerm) ||
+            b.businessList?.name?.toLowerCase().includes(bookingSearchTerm)
+        )
+        .map((book) => {
+            const status = book.bookingStatut?.toLowerCase();
+            const isPast = moment().isAfter(moment(book.time, 'DD-MMM-YYYY').endOf('day'));
+            
+            // Determine display status
+            const displayStatus = (isPast || status === 'completed') ? 'Completed' : book.bookingStatut;
+
+            return (
+                <TableRow key={book.id}>
+                    <TableCell className="pl-6">
+                        <div className='flex flex-col'>
+                            <span className='font-bold text-slate-800'>{book.userName}</span>
+                            <span className='text-[10px] text-slate-400'>{book.userEmail}</span>
+                        </div>
+                    </TableCell>
+                    <TableCell>
+                        <div className='flex flex-col'>
+                            <span className='font-medium text-slate-700'>{book.businessList?.name}</span>
+                            <span className='text-[10px] text-blue-500 font-medium'>{book.businessList?.category?.name}</span>
+                        </div>
+                    </TableCell>
+                    <TableCell>
+                        <div className='flex flex-col text-xs'>
+                            <span className='font-semibold text-slate-600'>{book.date}</span>
+                            <span className='text-slate-400'>{book.time}</span>
+                        </div>
+                    </TableCell>
+                    <TableCell>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${
+                            displayStatus === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 
+                            displayStatus?.toLowerCase() === 'pending' ? 'bg-amber-50 text-amber-600' :
+                            'bg-blue-50 text-blue-600'
+                        }`}>
+                            {displayStatus}
+                        </span>
+                    </TableCell>
+                    <TableCell className="text-right pr-6">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleCancelBooking(book.id)}
+                            title="Cancel Booking"
+                        >
+                            <X size={18} />
+                        </Button>
+                    </TableCell>
+                </TableRow>
+            );
+        })
+    }
+</TableBody>
+            </Table>
+        </Card>
+    </div>
+)}
                 {activeTab === 'providers' && (
                     <div className='space-y-4'>
                         <div className='flex justify-between items-center'>
@@ -376,7 +580,29 @@ function AdminDashboard() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <Button onClick={()=>setIsProviderModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 gap-2"><PlusCircle size={16}/> Add Provider</Button>
+                            
+                            <Dialog open={isProviderModalOpen} onOpenChange={setIsProviderModalOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="bg-blue-600 hover:bg-blue-700 gap-2"><PlusCircle size={16}/> Add Provider</Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                    <DialogHeader><DialogTitle>Register New Provider</DialogTitle></DialogHeader>
+                                    <div className='grid grid-cols-2 gap-4 mt-4'>
+                                        <Input placeholder="Business Name" onChange={(e)=>setNewBizData({...newBizData, name: e.target.value})}/>
+                                        <Input placeholder="Contact Person" onChange={(e)=>setNewBizData({...newBizData, contactPerson: e.target.value})}/>
+                                        <Input placeholder="Email" onChange={(e)=>setNewBizData({...newBizData, email: e.target.value})}/>
+                                        <Input placeholder="Phone (e.g 677...)" type="number" onChange={(e)=>setNewBizData({...newBizData, phone: e.target.value})}/>
+                                        <Input placeholder="Full Address" className="col-span-2" onChange={(e)=>setNewBizData({...newBizData, address: e.target.value})}/>
+                                        <Select onValueChange={(v)=>setNewBizData({...newBizData, categoryId: v})}>
+                                            <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
+                                            <SelectContent>{categories.map(c=><SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                        <Input type="file" onChange={(e)=>setNewBizData({...newBizData, image: e.target.files[0]})}/>
+                                        <Textarea placeholder="About the provider..." className="col-span-2" onChange={(e)=>setNewBizData({...newBizData, about: e.target.value})}/>
+                                    </div>
+                                    <DialogFooter><Button onClick={handleAddProvider} disabled={isCreatingProvider}>{isCreatingProvider ? <Loader2 className='animate-spin'/> : 'Create Provider'}</Button></DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                         <Card className="rounded-xl shadow-sm border-none overflow-hidden bg-white">
                             <Table>
@@ -400,14 +626,32 @@ function AdminDashboard() {
                 {activeTab === 'categories' && (
                     <div className='space-y-4'>
                         <div className='flex justify-end'>
-                            <Button onClick={()=>setIsCatModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 gap-2"><PlusCircle size={16}/> New Category</Button>
+                            <Dialog open={isCatModalOpen} onOpenChange={setIsCatModalOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="bg-purple-600 hover:bg-purple-700 gap-2"><PlusCircle size={16}/> New Category</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader><DialogTitle>Create Category</DialogTitle></DialogHeader>
+                                    <div className='flex flex-col gap-4 mt-4'>
+                                        <Input placeholder="Category Name" value={newCatName} onChange={(e)=>setNewCatName(e.target.value)}/>
+                                        <div className='border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-2'>
+                                            <Input type="file" className="hidden" id="cat-icon" onChange={(e)=>setCatFile(e.target.files[0])}/>
+                                            <label htmlFor="cat-icon" className='cursor-pointer flex flex-col items-center'>
+                                                <Plus className='text-slate-300' size={30}/>
+                                                <span className='text-xs text-slate-400'>{catFile ? catFile.name : 'Upload Icon'}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <DialogFooter><Button onClick={handleAddCategory} disabled={isCreatingCat} className="bg-purple-600">{isCreatingCat ? <Loader2 className='animate-spin'/> : 'Save Category'}</Button></DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                         <div className='grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4'>
                             {categories.map((cat) => (
                                 <Card key={cat.id} className="border-none shadow-sm bg-white overflow-hidden group">
                                     <div className='p-6 flex flex-col items-center text-center'>
                                         <div className='w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform'>
-                                            <Image src={cat.icon?.url} alt={cat.name} width={35} height={35} />
+                                            {cat.icon?.url && <Image src={cat.icon?.url} alt={cat.name} width={35} height={35} />}
                                         </div>
                                         <h3 className='font-bold text-slate-800'>{cat.name}</h3>
                                         <Button variant="ghost" size="sm" className='mt-4 text-red-400 hover:text-red-600 hover:bg-red-50' onClick={() => handleDeleteCategory(cat.id)}>

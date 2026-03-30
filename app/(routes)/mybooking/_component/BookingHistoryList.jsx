@@ -42,10 +42,10 @@ function BookingHistoryList({ bookingHistory, type }) {
   // MODIFIED LOGIC: Check if the CURRENT DATE is after the END DATE (booking.time)
   const isPastBooking = (bookingEndDate) => {
     if (!bookingEndDate) return false;
-    // We check if today is after the end of the booking interval (e.g., April 4)
+    // Standardize: A booking is past if current time is after the END of that date
     const endOfBookingDay = moment(bookingEndDate, 'DD-MMM-YYYY').endOf('day');
     return moment().isAfter(endOfBookingDay);
-  };
+};
 
   const deletePastBookings = async () => {
     const pastBookings = bookingHistory.filter(booking => 
@@ -158,7 +158,7 @@ function BookingHistoryList({ bookingHistory, type }) {
                         From: <span className='text-black font-semibold'>{booking.date}</span>
                       </h2>
                       <h2 className='flex gap-2 text-gray-500 items-center text-sm'>
-                        <Clock className='text-primary h-4 w-4' /> 
+                        <Calendar className='text-primary h-4 w-4' /> 
                         To: <span className='text-black font-semibold'>{booking.time}</span>
                       </h2>
                     </div>

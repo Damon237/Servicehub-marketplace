@@ -540,6 +540,19 @@ const createIntervalBooking = async (businessId, startDate, endDate, userEmail, 
   });
 };
 
+const getBusinessBookings = async (businessId) => {
+  const query = gql`
+    query GetBusinessBookings {
+      bookings(where: {businessList: {id: "`+businessId+`"}}, last: 100) {
+        date
+        time
+      }
+    }
+  `
+  const result = await request(MASTER_URL, query);
+  return result;
+}
+
 export default {
   getCategory, 
   getAllBusinessList,
@@ -564,4 +577,5 @@ export default {
   createReviews,
   getBusinessReviews,
   createIntervalBooking,
+  getBusinessBookings,
 };

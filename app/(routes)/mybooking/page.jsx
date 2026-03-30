@@ -31,26 +31,22 @@ function MyBooking() {
      * 2. OR the provider marked it as 'Completed' in the database
      */
     const filterData = (type) => {
-        return bookingHistory.filter(item => {
-            // Standardize current time comparison
-            // Matches your format: 22-Mar-2026 6:30 PM
-            const bookingDateTime = moment(`${item.date} ${item.time}`, 'DD-MMM-YYYY h:mm A');
-            const isPast = moment().isAfter(bookingDateTime);
-            const isStatusDone = item.bookingStatut === 'Completed';
+    return bookingHistory.filter(item => {
+        // Use endOf('day') to ensure it only marks as past AFTER the day is over
+        const bookingEndDate = moment(item.time, 'DD-MMM-YYYY').endOf('day');
+        const isPast = moment().isAfter(bookingEndDate);
+        const isStatusDone = item.bookingStatut === 'Completed';
 
-            // Logic for 'Booked' tab: Must be in the future AND not marked completed
-            if (type === 'booked') {
-                return !isPast && !isStatusDone;
-            }
-            
-            // Logic for 'Completed' tab: Is in the past OR marked completed
-            if (type === 'completed') {
-                return isPast || isStatusDone;
-            }
-
-            return false;
-        });
-    }
+        if (type === 'booked') {
+            return !isPast && !isStatusDone;
+        }
+        
+        if (type === 'completed') {
+            return isPast || isStatusDone;
+        }
+        return false;
+    });
+}
 
     return (
         <div className='my-10 mx-5 md:mx-36'>
