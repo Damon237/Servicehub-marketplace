@@ -62,11 +62,25 @@ const getBusinessByCategory = async (category) => {
   return executeQuery(query, { category });
 };
 
+// --- GLOBALAPI.JS ---
+
 const getBusinessById = async (id) => {
   const query = gql`
     query GetBusinessById($id: ID!) {
       businessList(where: { id: $id }) {
-        about address category { name } contactPerson email id name images { url }
+        about 
+        address 
+        category { name } 
+        contactPerson 
+        email 
+        id 
+        name 
+        images { url }
+       
+        location {
+          latitude
+          longitude
+        }
       }
     }
   `;
