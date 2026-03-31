@@ -62,7 +62,7 @@ export async function POST(req) {
 
           <p>Please log in to your dashboard to manage this request and coordinate with the client.</p>
           
-          <a href="${process.env.NEXTAUTH_URL}/my-booking" 
+          <a href="${process.env.NEXTAUTH_URL}/provider-dashboard" 
              style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
              View Dashboard
           </a>

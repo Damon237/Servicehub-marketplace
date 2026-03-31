@@ -8,11 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from '@/components/ui/button' 
-import { Loader2, CalendarDays, User, Clock, MapPin, Briefcase, CheckCircle2, Timer, History, Star, TrendingUp, ShieldAlert } from "lucide-react"
+import { Loader2, CalendarDays, User, Clock, MapPin, MessageSquare, Briefcase, CheckCircle2, History, Star, Timer } from "lucide-react"
+import { 
+    Dialog, DialogContent, DialogTrigger 
+} from "@/components/ui/dialog"
 import { toast } from 'sonner' 
+import moment from 'moment'
 import EditProfile from './_components/EditProfile'
+import ChatComponent from '@/app/_components/ChatComponent';
 
-// CRITICAL for Vercel deployment build errors
 export const dynamic = 'force-dynamic';
 
 function ProviderDashboard() {
@@ -24,10 +28,15 @@ function ProviderDashboard() {
     const [reviews, setReviews] = useState([]); 
     const [loading, setLoading] = useState(true);
 
+    const refreshData = async () => {
+        if (!session?.user?.email) return;
+        const resp = await GlobalApi.getBookingHistoryByBusinessEmail(session.user.email);
+        setBookings(resp?.bookings || []);
+    };
+
     useEffect(() => {
         const verifyAndFetch = async () => {
             if (status === 'loading') return;
-
             if (!session) {
                 router.push('/provider/login');
                 return;
@@ -44,237 +53,200 @@ function ProviderDashboard() {
                 }
 
                 setBusinessData(business);
+                await refreshData();
 
-                const [bookResp, reviewResp] = await Promise.all([
-                    GlobalApi.getBookingHistoryByBusinessEmail(session.user.email),
-                    GlobalApi.getBusinessReviews(business.id)
-                ]);
-
-                setBookings(bookResp?.bookings || []);
+                const reviewResp = await GlobalApi.getBusinessReviews(business.id);
                 setReviews(reviewResp || []);
 
             } catch (error) {
                 console.error("Dashboard Error:", error);
-                toast.error("Failed to load dashboard data.");
             } finally {
                 setLoading(false);
             }
         };
 
         verifyAndFetch();
-    }, [session, status, router]);
 
-    const calculateDynamicRating = () => {
-        if (!reviews || reviews.length === 0) return "0.0";
-        const totalStars = reviews.reduce((acc, rev) => acc + rev.rating, 0);
-        return (totalStars / reviews.length).toFixed(1);
-    };
+        const interval = setInterval(() => {
+            if (session?.user?.email) refreshData();
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [session, status]);
 
     const onCompleteBooking = async (bookingId) => {
         try {
-            await GlobalApi.updateBookingStatus(bookingId, 'Completed');
+            // Update status in Hygraph to 'completed'
+            await GlobalApi.updateBookingStatus(bookingId, 'completed');
             toast.success("Service marked as Completed!");
+            // Refresh local state so the item moves to history immediately
             refreshData(); 
         } catch (e) {
             toast.error("Error updating status.");
         }
     }
 
-    const onPostponeBooking = async (bookingId) => {
-        const reason = window.prompt("Enter reason for postponement:");
-        if (!reason) return;
-        try {
-            await GlobalApi.updateBookingStatus(bookingId, 'Postponed', reason);
-            toast.success("Booking postponed.");
-            refreshData(); 
-        } catch (e) {
-            toast.error("Error updating status");
-        }
-    }
-
-    const refreshData = async () => {
-        const resp = await GlobalApi.getBookingHistoryByBusinessEmail(session.user.email);
-        setBookings(resp?.bookings || []);
+    // A booking is finished if manually marked 'completed' OR if the date has passed
+    const isBookingFinished = (booking) => {
+        const isStatusCompleted = booking.bookingStatut?.toLowerCase() === 'completed';
+        const isPastDate = moment(booking.date, 'DD-MMM-YYYY').isBefore(moment(), 'day');
+        return isStatusCompleted || isPastDate;
     };
 
-    const activeBookings = bookings.filter(b => b.bookingStatut !== 'Completed');
-    const completedBookings = bookings.filter(b => b.bookingStatut === 'Completed');
+    const activeBookings = bookings.filter(b => !isBookingFinished(b));
+    const completedBookings = bookings.filter(b => isBookingFinished(b));
 
     if (status === "loading" || loading) return (
         <div className='flex flex-col items-center justify-center h-screen gap-4'>
             <Loader2 className='animate-spin text-blue-600' size={40} />
-            <p className='text-slate-500 animate-pulse font-medium'>Authenticating Artisan Portal...</p>
+              <p className='text-slate-500'>Loading...</p>
         </div>
     );
 
-    if (!businessData) return null;
-
     return (
-        <div className='p-5 md:p-10 max-w-7xl mx-auto'>
-            <div className='flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4'>
+        <div className='p-4 md:p-10 max-w-7xl mx-auto pb-20'>
+            <div className='flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-6'>
                 <div>
-                    <h1 className='text-3xl font-extrabold text-slate-800 flex items-center gap-2'>
+                    <h1 className='text-2xl font-extrabold text-slate-800 flex items-center gap-2'>
                         <Briefcase className='text-blue-600' /> Artisan Dashboard
                     </h1>
                     <div className='mt-2'>
-                        <span className='text-lg font-medium text-slate-700'>
-                            Welcome Back, <span className='text-blue-600 font-bold text-xl'>{businessData.contactPerson}</span>
+                        <span className='text-base md:text-lg font-medium text-slate-700'>
+                            Welcome Back, <span className='text-blue-600 font-bold'>{businessData?.contactPerson}</span>
                         </span>
-                        <p className='text-sm text-slate-400 font-semibold uppercase tracking-wider'>
-                            {businessData.name}
+                        <p className='text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1'>
+                            {businessData?.name}
                         </p>
                     </div>
-                    <p className='text-slate-500 mt-1'>Manage your professional services and requests</p>
                 </div>
-                <div className='flex items-center gap-3'>
-                   <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 px-4 py-1.5 shadow-sm rounded-full">
-                        <MapPin size={14} className="mr-1 text-blue-500" /> {businessData.address}
+                <div className='flex items-center'>
+                   <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 px-4 py-1.5 shadow-sm rounded-xl">
+                        <MapPin size={14} className="mr-1.5 text-blue-500" /> 
+                        {businessData?.address}
                     </Badge>
                 </div>
             </div>
 
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-10'>
-                <Card className="border-none shadow-sm bg-white border-l-4 border-l-blue-500">
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10'>
+                <Card className="border-l-4 border-l-blue-500 shadow-sm border-none">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">New Requests</CardTitle>
+                        <CardTitle className="text-[10px] font-bold text-slate-600 uppercase">New Requests</CardTitle>
                         <Timer className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-slate-800">{activeBookings.length}</div>
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium">PENDING SERVICES</p>
+                        <div className="text-2xl font-bold">{activeBookings.length}</div>
                     </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-white border-l-4 border-l-emerald-500">
+                <Card className="border-l-4 border-l-emerald-500 shadow-sm border-none">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Jobs Done</CardTitle>
+                        <CardTitle className="text-[10px] font-bold text-slate-600 uppercase">Jobs Done</CardTitle>
                         <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-slate-800">{completedBookings.length}</div>
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium">LIFETIME COMPLETED</p>
+                        <div className="text-2xl font-bold">{completedBookings.length}</div>
                     </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-white border-l-4 border-l-amber-500">
+                <Card className="border-l-4 border-l-amber-500 shadow-sm border-none sm:col-span-2 lg:col-span-1">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Performance</CardTitle>
+                        <CardTitle className="text-[10px] font-bold text-slate-600 uppercase">Rating</CardTitle>
                         <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-slate-800 flex items-baseline gap-1">
-                            {calculateDynamicRating()} 
-                            <span className="text-sm font-normal text-slate-400">/ 5.0</span>
+                        <div className="text-2xl font-bold">
+                            {(reviews.length > 0 ? (reviews.reduce((acc, rev) => acc + rev.rating, 0) / reviews.length) : 0).toFixed(1)} / 5.0
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium">FROM {reviews.length} REVIEWS</p>
                     </CardContent>
                 </Card>
             </div>
 
             <Tabs defaultValue="incoming" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 md:w-[500px] mb-8 bg-slate-100 p-1 rounded-xl">
-                    <TabsTrigger value="incoming" className="rounded-lg">Active Schedule</TabsTrigger>
-                    <TabsTrigger value="history" className="rounded-lg">History</TabsTrigger>
-                    <TabsTrigger value="profile" className="rounded-lg">Profile</TabsTrigger>
+                <TabsList className="mb-8 bg-slate-100 p-1 rounded-xl">
+                    <TabsTrigger value="incoming">Active Schedule</TabsTrigger>
+                    <TabsTrigger value="history">History</TabsTrigger>
+                    <TabsTrigger value="profile">Profile</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="incoming">
-                    <BookingTable 
-                        data={activeBookings} 
-                        onComplete={onCompleteBooking} 
-                        onPostpone={onPostponeBooking}
-                        isHistory={false} 
-                    />
+                    <BookingTable data={activeBookings} onComplete={onCompleteBooking} isHistory={false} session={session} />
                 </TabsContent>
 
                 <TabsContent value="history">
-                    <BookingTable 
-                        data={completedBookings} 
-                        isHistory={true} 
-                    />
+                    <BookingTable data={completedBookings} isHistory={true} session={session} />
                 </TabsContent>
 
                 <TabsContent value="profile">
-                    <Card className="border-none shadow-sm bg-white rounded-2xl">
-                        <CardHeader>
-                            <CardTitle className="text-lg">Professional Settings</CardTitle>
-                            <CardDescription>Update your public business information</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <EditProfile businessData={businessData} onUpdate={() => router.refresh()} />
-                        </CardContent>
-                    </Card>
+                    <EditProfile businessData={businessData} onUpdate={() => router.refresh()} />
                 </TabsContent>
             </Tabs>
         </div>
     )
 }
 
-function BookingTable({ data, onComplete, onPostpone, isHistory }) {
+function BookingTable({ data, onComplete, isHistory, session }) {
     return (
         <Card className="shadow-sm border-none overflow-hidden rounded-2xl bg-white">
             <CardContent className="p-0">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                            <TableHead className="font-bold pl-6 text-slate-500">CLIENT DETAILS</TableHead>
-                            <TableHead className="font-bold text-slate-500">SERVICE PERIOD</TableHead>
-                            <TableHead className="font-bold text-center text-slate-500">STATUS</TableHead>
-                            {!isHistory && <TableHead className="text-right font-bold pr-6 text-slate-500">ACTIONS</TableHead>}
+                        <TableRow className="bg-slate-50">
+                            <TableHead className="font-bold pl-6">CLIENT</TableHead>
+                            <TableHead className="font-bold">SERVICE DATE</TableHead>
+                            <TableHead className="font-bold text-center">STATUS</TableHead>
+                            <TableHead className="text-right font-bold pr-6">ACTIONS</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {data.length > 0 ? data.map((booking, index) => (
-                            <TableRow key={index} className="hover:bg-slate-50/30 transition-colors">
-                                <TableCell className="pl-6 py-4">
-                                    <p className='font-bold text-slate-700'>{booking.userName}</p>
-                                    <p className='text-[11px] text-slate-400'>{booking.userEmail}</p>
-                                </TableCell>
-                                <TableCell>
-                                    <div className='text-[12px] text-slate-600 space-y-1.5'>
-                                        {/* Shows Date Range clearly for the provider using date/time fields */}
-                                        <div className='flex items-center gap-2'>
-                                            <CalendarDays size={13} className='text-blue-500'/> 
-                                            <span className="text-slate-400">From:</span> {booking.date}
-                                        </div>
-                                        <div className='flex items-center gap-2 font-bold text-slate-800'>
-                                            <Clock size={13} className='text-amber-500'/> 
-                                            <span className="text-slate-400 font-normal">To:</span> {booking.time}
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                    <Badge className={
-                                        booking.bookingStatut === 'Completed' 
-                                        ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-50 border-none px-3' 
-                                        : 'bg-blue-50 text-blue-600 hover:bg-blue-50 border-none px-3'
-                                    }>
-                                        {booking.bookingStatut || 'Confirmed'}
-                                    </Badge>
-                                </TableCell>
-                                {!isHistory && (
-                                    <TableCell className="text-right pr-6">
-                                        <div className='flex justify-end gap-2'>
-                                            <Button size="icon" variant="outline" className="h-8 w-8 text-emerald-600 border-emerald-100 hover:bg-emerald-50" onClick={() => onComplete(booking.id)}>
-                                                <CheckCircle2 size={16} />
-                                            </Button>
-                                            <Button size="icon" variant="outline" className="h-8 w-8 text-amber-600 border-amber-100 hover:bg-amber-50" onClick={() => onPostpone(booking.id)}>
-                                                <Timer size={16} />
-                                            </Button>
+                        {data.length > 0 ? data.map((booking, index) => {
+                            const lastMsg = booking.messages?.[booking.messages.length - 1];
+                            const hasUnread = lastMsg && lastMsg.senderEmail !== session?.user?.email;
+                            
+                            // Check for completed status or expired date
+                            const isFinished = booking.bookingStatut?.toLowerCase() === 'completed' || 
+                                             moment(booking.date, 'DD-MMM-YYYY').isBefore(moment(), 'day');
+
+                            return (
+                                <TableRow key={index} className="hover:bg-slate-50/50">
+                                    <TableCell className="pl-6 py-4">
+                                        <p className='font-bold text-slate-700'>{booking.userName}</p>
+                                        <p className='text-[11px] text-slate-400'>{booking.userEmail}</p>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className='text-[12px] space-y-1'>
+                                            <div className='flex items-center gap-2'><CalendarDays size={13} className='text-blue-500'/> {booking.date}</div>
+                                            <div className='flex items-center gap-2'><Clock size={13} className='text-amber-500'/> {booking.time}</div>
                                         </div>
                                     </TableCell>
-                                )}
-                            </TableRow>
-                        )) : (
-                            <TableRow>
-                                <TableCell colSpan={isHistory ? 3 : 4} className="text-center py-24">
-                                    <div className='flex flex-col items-center gap-2'>
-                                        <div className='p-3 bg-slate-50 rounded-full'>
-                                            <History className='text-slate-200' size={30} />
+                                    <TableCell className="text-center">
+                                        <Badge className={isFinished ? 'bg-emerald-50 text-emerald-600 border-none px-3' : 'bg-blue-50 text-blue-600 border-none px-3'}>
+                                            {isFinished ? 'Completed' : (booking.bookingStatut || 'Confirmed')}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <div className='flex justify-end gap-2'>
+                                            {!isHistory && !isFinished && (
+                                                <Button size="icon" variant="outline" className="h-8 w-8 text-emerald-600 border-emerald-100" onClick={() => onComplete(booking.id)}>
+                                                    <CheckCircle2 size={16} />
+                                                </Button>
+                                            )}
+                                            <Dialog>
+                                                <DialogTrigger asChild>
+                                                    <Button size="icon" variant="outline" className="h-8 w-8 text-blue-600 relative">
+                                                        <MessageSquare size={16} />
+                                                        {hasUnread && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />}
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="p-0 max-w-[400px] rounded-2xl border-none">
+                                                    <ChatComponent bookingId={booking.id} currentUserEmail={session?.user?.email} recipientName={booking.userName} />
+                                                </DialogContent>
+                                            </Dialog>
                                         </div>
-                                        <p className='text-slate-400 text-sm font-medium'>No service records found.</p>
-                                    </div>
-                                </TableCell>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        }) : (
+                            <TableRow>
+                                <TableCell colSpan={4} className="text-center py-20 text-slate-400">No records found.</TableCell>
                             </TableRow>
                         )}
                     </TableBody>

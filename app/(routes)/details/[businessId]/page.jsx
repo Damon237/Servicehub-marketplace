@@ -10,19 +10,18 @@ import BusinessReview from '../_components/BusinessReview';
 function BusinessDetail({params}) {
     const {data, status} = useSession();
     const [business, setBusiness] = useState([]);
-    // Added state to hold reviews at the page level
     const [reviews, setReviews] = useState([]);
     
     useEffect(() => {
       if (params) {
         getbusinessById();
-        getReviews(); // Fetch reviews when params/id changes
+        getReviews(); 
       }
     }, [params]);
 
     useEffect(() => {
       checkUserAuth();
-    }, [status]); // Added status dependency for better auth handling
+    }, [status]); 
 
     const getbusinessById = () => {
       GlobalApi.getBusinessById(params.businessId).then(resp => {
@@ -30,7 +29,6 @@ function BusinessDetail({params}) {
       })
     }
 
-    // New function to fetch reviews for this specific business
     const getReviews = () => {
       GlobalApi.getBusinessReviews(params.businessId).then(resp => {
         setReviews(resp || []);
@@ -42,28 +40,44 @@ function BusinessDetail({params}) {
       if (status == 'unauthenticated') signIn('descope');
     }
 
-  if (status == 'loading') return <div className='flex justify-center items-center h-screen'>Loading...</div>;
+  if (status == 'loading') return (
+    <div className='flex justify-center items-center h-screen text-blue-500 font-medium'>
+        <div className="animate-pulse">Loading service details...</div>
+    </div>
+  );
 
   return status == 'authenticated' && business && (
-    <div className='py-8 md:py-20 px-4 sm:px-10 md:px-36'>
-        {/* Pass the reviews prop to BusinessInfo so the Star Rating updates */}
-        <BusinessInfo business={business} reviews={reviews} />
+    <div className='py-6 md:py-16 px-4 sm:px-8 md:px-16 lg:px-36'>
+        {/* Top Section: Business Header Info */}
+        <div className='w-full'>
+            <BusinessInfo business={business} reviews={reviews} />
+        </div>
 
-        <div className='grid grid-cols-1 md:grid-cols-3 mt-8 md:mt-16 gap-8'>
-          <div className='col-span-3 md:col-span-2 order-last md:order-first'>
-            <BusinessDescription business={business}/>
+        {/* Main Content Grid */}
+        <div className='grid grid-cols-1 md:grid-cols-3 mt-8 md:mt-12 gap-8 lg:gap-12'>
+          
+          {/* Left Column: Description and Reviews */}
+          <div className='md:col-span-2 space-y-10 order-2 md:order-1'>
+            <div className='bg-white rounded-2xl'>
+                <BusinessDescription business={business}/>
+            </div>
             
-            {/* Reviews Section */}
-            <BusinessReview 
-              businessId={business.id} 
-              userName={data?.user?.name} 
-              // Optional: pass getReviews so the list refreshes after a new post
-              refreshReviews={getReviews} 
-            />
+            <div className='bg-white rounded-2xl'>
+                <BusinessReview 
+                  businessId={business.id} 
+                  userName={data?.user?.name} 
+                  refreshReviews={getReviews} 
+                />
+            </div>
           </div>
-          <div className=''>
-            <SuggestedBusinessList business={business}/>
+
+          {/* Right Column: Sidebar / Suggested Items */}
+          <div className='order-1 md:order-2'>
+            <div className='sticky top-24'>
+                <SuggestedBusinessList business={business}/>
+            </div>
           </div>
+
         </div>
     </div>
   )

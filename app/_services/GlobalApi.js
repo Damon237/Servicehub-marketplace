@@ -127,7 +127,6 @@ const GetUserBookingHistory = async (userEmail) => {
         date
         time
         bookingStatut
-        postponeReason
       
         businessList {
           name
@@ -239,32 +238,42 @@ const updateBusinessProfile = async (id, data) => {
   return executeQuery(mutation, variables);
 };
 
-const updateBookingStatus = async (bookingId, status, reason = "") => {
+// @/app/_services/GlobalApi.js
+
+// 1. Fix the update function
+const updateBookingStatus = async (bookingId, status) => {
   const updateMutation = gql`
-    mutation UpdateBooking($id: ID!, $status: String!, $reason: String) {
+    mutation UpdateBooking($id: ID!, $status: ProgressStatut!) {
       updateBooking(
         where: { id: $id }
-        data: { bookingStatut: $status, note: $reason }
+        data: { bookingStatut: $status }
       ) {
         id
       }
     }
   `;
 
-  const result = await executeQuery(updateMutation, { id: bookingId, status, reason });
+  try {
+    const result = await executeQuery(updateMutation, { 
+      id: bookingId, 
+      status: status // This will be 'completed'
+    });
 
-  if (result) {
-    const publishMutation = gql`
-      mutation PublishBooking($id: ID!) {
-        publishBooking(where: { id: $id }, to: [PUBLISHED]) {
-          id
+    if (result) {
+      const publishMutation = gql`
+        mutation PublishBooking($id: ID!) {
+          publishBooking(where: { id: $id }, to: [PUBLISHED]) {
+            id
+          }
         }
-      }
-    `;
-    await executeQuery(publishMutation, { id: bookingId });
+      `;
+      await executeQuery(publishMutation, { id: bookingId });
+    }
+    return result;
+  } catch (error) {
+    console.error("❌ Status Update Failed:", error);
+    throw error;
   }
-
-  return result;
 };
 
 const deleteBooking = async (bookingId) => {
@@ -545,6 +554,40 @@ const getBusinessBookings = async (businessId) => {
   return result;
 }
 
+
+const getMessagesByBookingId = async (bookingId) => {
+  const query = `query GetMessages($bookingId: ID!) {
+    messages(where: {booking: {id: $bookingId}}, orderBy: createdAt_ASC) {
+      content
+      senderEmail
+      userName
+      createdAt
+    }
+  }`;
+  const variables = { bookingId };
+  return await request(MASTER_URL, query, variables);
+};
+
+const createNewMessage = async (bookingId, senderEmail, content, userName) => {
+  const mutation = `mutation CreateMessage($bookingId: ID!, $senderEmail: String!, $content: String!, $userName: String!) {
+    createMessage(
+      data: {
+        content: $content, 
+        senderEmail: $senderEmail, 
+        userName: $userName,
+        booking: {connect: {id: $bookingId}}
+      }
+    ) {
+      id
+    }
+    publishManyMessages(to: PUBLISHED) {
+      count
+    }
+  }`;
+  const variables = { bookingId, senderEmail, content, userName };
+  return await request(MASTER_URL, mutation, variables);
+};
+
 export default {
   getCategory, 
   getAllBusinessList,
@@ -570,4 +613,6 @@ export default {
   getBusinessReviews,
   createIntervalBooking,
   getBusinessBookings,
+  getMessagesByBookingId,
+  createNewMessage,
 };

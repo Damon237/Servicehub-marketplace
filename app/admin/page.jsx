@@ -186,85 +186,59 @@ function AdminDashboard() {
 
 
 const calculateStats = () => {
-    const now = moment().startOf('day'); 
+    const now = moment().startOf('day');
 
+    // Helper defined at the top so it's accessible everywhere below
     const getBookingPrice = (item) => {
         if (!item.date || !item.time) return 2000;
-        
-        // Parse dates exactly as stored ('DD-MMM-YYYY')
         const start = moment(item.date, 'DD-MMM-YYYY').startOf('day');
         const end = moment(item.time, 'DD-MMM-YYYY').startOf('day');
-        
-        // Calculate total inclusive days
         const totalDays = end.diff(start, 'days') + 1;
-        
-        let price = 2000; 
-        if (totalDays > 3) {
-            const extraDays = totalDays - 3;
-            price = 2000 + (extraDays * 500); 
-        }
+        let price = 2000;
+        if (totalDays > 3) price = 2000 + ((totalDays - 3) * 500);
         return price;
     };
-    
-    // 1. Total Revenue: Sum of every booking in the system
+
     const totalRevenue = bookings.reduce((acc, item) => acc + getBookingPrice(item), 0);
     
-    // 2. Today's Revenue: SUMS all bookings that were CREATED today
-    const todayRevenue = bookings
-        .filter(item => {
-            // Using createdAt ensures we count the money the moment it is paid
-            // regardless of when the actual service starts.
-            if (!item.createdAt) {
-                // Fallback: Check if the service starts today if createdAt is missing
-                return moment(item.date, 'DD-MMM-YYYY').isSame(now, 'day');
-            }
-            return moment(item.createdAt).isSame(now, 'day');
-        })
-        .reduce((acc, item) => acc + getBookingPrice(item), 0);
+    const todayRevenue = bookings.filter(item => {
+        const created = item.createdAt ? moment(item.createdAt) : moment(item.date, 'DD-MMM-YYYY');
+        return created.isSame(now, 'day');
+    }).reduce((acc, item) => acc + getBookingPrice(item), 0);
 
-    // 3. Completed Bookings logic
-    const completedBookings = bookings.filter(item => {
-        const isStatusDone = item.bookingStatut?.toLowerCase() === 'completed';
-        const bookingEndDate = moment(item.time, 'DD-MMM-YYYY').endOf('day');
-        return isStatusDone || moment().isAfter(bookingEndDate);
-    });
-
-    // 4. Chart Data logic
-    const dailyRevenueMap = completedBookings.reduce((acc, item) => {
+    // FIXED GROWTH REVENUE LOGIC
+    const dailyData = bookings.reduce((acc, item) => {
+        const date = moment(item.date, 'DD-MMM-YYYY').format('YYYY-MM-DD');
         const price = getBookingPrice(item);
-        const dateKey = item.date; 
-        acc[dateKey] = (acc[dateKey] || 0) + price; 
+        acc[date] = (acc[date] || 0) + price;
         return acc;
     }, {});
 
-    const sortedDates = Object.keys(dailyRevenueMap).sort((a, b) => 
-        moment(a, 'DD-MMM-YYYY').diff(moment(b, 'DD-MMM-YYYY'))
-    );
+    const revenueChartData = Object.keys(dailyData)
+        .sort((a, b) => moment(a).diff(moment(b)))
+        .map((date, index, array) => {
+            const cumulativeRevenue = array
+                .slice(0, index + 1)
+                .reduce((sum, d) => sum + dailyData[d], 0);
+            return {
+                date: moment(date).format('MMM DD'),
+                revenue: cumulativeRevenue
+            };
+        });
 
-    let cumulativeSum = 0;
-    const revenueChartData = sortedDates.map(date => {
-        cumulativeSum += dailyRevenueMap[date];
-        return {
-            date: moment(date, 'DD-MMM-YYYY').format('MMM DD'),
-            revenue: cumulativeSum
-        };
-    });
-
-    return { 
-        completedCount: completedBookings.length, 
-        pendingCount: bookings.length - completedBookings.length, 
-        totalRevenue, 
-        todayRevenue, 
-        revenueChartData, 
+    return {
+        completedCount: bookings.filter(b => b.bookingStatut?.toLowerCase() === 'completed').length,
+        totalRevenue,
+        todayRevenue,
+        revenueChartData,
         distributionData: [
             { name: 'Providers', value: businesses.length, color: '#3b82f6' },
-            { name: 'Categories', value: categories.length, color: '#a855f7' },
-            { name: 'Completed', value: completedBookings.length, color: '#10b981' },
-            { name: 'Pending', value: (bookings.length - completedBookings.length), color: '#f59e0b' },
-        ],
-        getBookingPrice 
+            { name: 'Bookings', value: bookings.length, color: '#10b981' },
+            { name: 'Categories', value: categories.length, color: '#f59e0b' },
+        ]
     };
 };
+
     const stats=useMemo(() => calculateStats(), [bookings, businesses, categories]);
 
 
@@ -279,6 +253,9 @@ const calculateStats = () => {
             <span className='font-medium text-sm'>{label}</span>
         </button>
     );
+
+
+    
 
     if (status === "loading" || loading) {
         return (
