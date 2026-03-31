@@ -12,6 +12,9 @@ import { Loader2, CalendarDays, User, Clock, MapPin, Briefcase, CheckCircle2, Ti
 import { toast } from 'sonner' 
 import EditProfile from './_components/EditProfile'
 
+// CRITICAL for Vercel deployment build errors
+export const dynamic = 'force-dynamic';
+
 function ProviderDashboard() {
     const { data: session, status } = useSession();
     const router = useRouter();
@@ -21,12 +24,10 @@ function ProviderDashboard() {
     const [reviews, setReviews] = useState([]); 
     const [loading, setLoading] = useState(true);
 
-    // SECURITY & DATA FETCHING
     useEffect(() => {
         const verifyAndFetch = async () => {
             if (status === 'loading') return;
 
-            // 1. Check if user is logged in at all
             if (!session) {
                 router.push('/provider/login');
                 return;
@@ -34,18 +35,16 @@ function ProviderDashboard() {
 
             try {
                 setLoading(true);
-                // 2. Verify if this email is actually a registered Provider
                 const business = await GlobalApi.getBusinessByEmail(session.user.email);
                 
                 if (!business) {
                     toast.error("Access Denied. You are not registered as an Artisan.");
-                    router.push('/'); // Redirect to home or a "Become a Pro" page
+                    router.push('/');
                     return;
                 }
 
                 setBusinessData(business);
 
-                // 3. Fetch Related Data
                 const [bookResp, reviewResp] = await Promise.all([
                     GlobalApi.getBookingHistoryByBusinessEmail(session.user.email),
                     GlobalApi.getBusinessReviews(business.id)
@@ -101,7 +100,6 @@ function ProviderDashboard() {
     const activeBookings = bookings.filter(b => b.bookingStatut !== 'Completed');
     const completedBookings = bookings.filter(b => b.bookingStatut === 'Completed');
 
-    // UI LOADERS
     if (status === "loading" || loading) return (
         <div className='flex flex-col items-center justify-center h-screen gap-4'>
             <Loader2 className='animate-spin text-blue-600' size={40} />
@@ -109,35 +107,32 @@ function ProviderDashboard() {
         </div>
     );
 
-    if (!businessData) return null; // Prevent flicker before redirect
+    if (!businessData) return null;
 
     return (
         <div className='p-5 md:p-10 max-w-7xl mx-auto'>
-            {/* Header */}
-<div className='flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4'>
-    <div>
-        <h1 className='text-3xl font-extrabold text-slate-800 flex items-center gap-2'>
-            <Briefcase className='text-blue-600' /> Artisan Dashboard
-        </h1>
-        {/* We use businessData.name for the business name and businessData.contactPerson for the individual */}
-        <div className='mt-2'>
-            <span className='text-lg font-medium text-slate-700'>
-                Welcome Back, <span className='text-blue-600 font-bold text-xl'>{businessData.contactPerson}</span>
-            </span>
-            <p className='text-sm text-slate-400 font-semibold uppercase tracking-wider'>
-                {businessData.name}
-            </p>
-        </div>
-        <p className='text-slate-500 mt-1'>Manage your professional services and requests</p>
-    </div>
-    <div className='flex items-center gap-3'>
-       <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 px-4 py-1.5 shadow-sm rounded-full">
-            <MapPin size={14} className="mr-1 text-blue-500" /> {businessData.address}
-        </Badge>
-    </div>
-</div>
+            <div className='flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4'>
+                <div>
+                    <h1 className='text-3xl font-extrabold text-slate-800 flex items-center gap-2'>
+                        <Briefcase className='text-blue-600' /> Artisan Dashboard
+                    </h1>
+                    <div className='mt-2'>
+                        <span className='text-lg font-medium text-slate-700'>
+                            Welcome Back, <span className='text-blue-600 font-bold text-xl'>{businessData.contactPerson}</span>
+                        </span>
+                        <p className='text-sm text-slate-400 font-semibold uppercase tracking-wider'>
+                            {businessData.name}
+                        </p>
+                    </div>
+                    <p className='text-slate-500 mt-1'>Manage your professional services and requests</p>
+                </div>
+                <div className='flex items-center gap-3'>
+                   <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 px-4 py-1.5 shadow-sm rounded-full">
+                        <MapPin size={14} className="mr-1 text-blue-500" /> {businessData.address}
+                    </Badge>
+                </div>
+            </div>
 
-            {/* STATS CARDS */}
             <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-10'>
                 <Card className="border-none shadow-sm bg-white border-l-4 border-l-blue-500">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -223,7 +218,7 @@ function BookingTable({ data, onComplete, onPostpone, isHistory }) {
                     <TableHeader>
                         <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
                             <TableHead className="font-bold pl-6 text-slate-500">CLIENT DETAILS</TableHead>
-                            <TableHead className="font-bold text-slate-500">SCHEDULE</TableHead>
+                            <TableHead className="font-bold text-slate-500">SERVICE PERIOD</TableHead>
                             <TableHead className="font-bold text-center text-slate-500">STATUS</TableHead>
                             {!isHistory && <TableHead className="text-right font-bold pr-6 text-slate-500">ACTIONS</TableHead>}
                         </TableRow>
@@ -237,8 +232,15 @@ function BookingTable({ data, onComplete, onPostpone, isHistory }) {
                                 </TableCell>
                                 <TableCell>
                                     <div className='text-[12px] text-slate-600 space-y-1.5'>
-                                        <div className='flex items-center gap-2'><CalendarDays size={13} className='text-blue-500'/> {booking.date}</div>
-                                        <div className='flex items-center gap-2 font-bold text-slate-800'><Clock size={13} className='text-amber-500'/> {booking.time}</div>
+                                        {/* Shows Date Range clearly for the provider using date/time fields */}
+                                        <div className='flex items-center gap-2'>
+                                            <CalendarDays size={13} className='text-blue-500'/> 
+                                            <span className="text-slate-400">From:</span> {booking.date}
+                                        </div>
+                                        <div className='flex items-center gap-2 font-bold text-slate-800'>
+                                            <Clock size={13} className='text-amber-500'/> 
+                                            <span className="text-slate-400 font-normal">To:</span> {booking.time}
+                                        </div>
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-center">

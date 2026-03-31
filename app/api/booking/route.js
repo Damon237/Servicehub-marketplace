@@ -4,6 +4,9 @@ import GlobalApi from '@/app/_services/GlobalApi';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// This line is CRITICAL to prevent the "Failed to collect page data" build error on Vercel
+export const dynamic = 'force-dynamic';
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -17,7 +20,7 @@ export async function POST(req) {
       businessName 
     } = body;
 
-    // 1. Professional Validation Check
+    // 1. Validation Check
     if (!businessId || !userEmail || !providerEmail) {
       return NextResponse.json(
         { error: 'Missing required booking information' }, 
@@ -26,7 +29,9 @@ export async function POST(req) {
     }
 
     // 2. Database Transaction (Hygraph)
-    const bookingResp = await GlobalApi.createNewBooking(
+    // FIX: Changed createNewBooking to createIntervalBooking to match your GlobalApi
+    // and handle the startDate/endDate range correctly.
+    const bookingResp = await GlobalApi.createIntervalBooking(
       businessId, 
       startDate, 
       endDate, 
@@ -38,9 +43,7 @@ export async function POST(req) {
       throw new Error('Database insertion failed');
     }
 
-    // 3. Professional Email Template
-    // Note: 'onboarding@resend.dev' only works for your own email during testing.
-    // Replace with your domain once verified.
+    // 3. Email Notification via Resend
     await resend.emails.send({
       from: 'ServiceHub <notifications@resend.dev>', 
       to: [providerEmail], 

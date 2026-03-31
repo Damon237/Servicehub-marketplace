@@ -62,8 +62,6 @@ const getBusinessByCategory = async (category) => {
   return executeQuery(query, { category });
 };
 
-// --- GLOBALAPI.JS ---
-
 const getBusinessById = async (id) => {
   const query = gql`
     query GetBusinessById($id: ID!) {
@@ -203,7 +201,6 @@ const updateBusinessProfile = async (id, data) => {
       $contactPerson: String, 
       $phone: Int, 
       $email: String, 
-      # Added '!' here to match your schema's required Float type
       $lat: Float!, 
       $lng: Float!
     ) {
@@ -235,7 +232,6 @@ const updateBusinessProfile = async (id, data) => {
     contactPerson: data.contactPerson || "",
     email: data.email || "",
     phone: data.phone ? parseInt(data.phone) : 0,
-    // Ensure these are never null/undefined since the schema requires Float!
     lat: data.lat ? parseFloat(data.lat) : 4.0511, 
     lng: data.lng ? parseFloat(data.lng) : 9.7679
   };
@@ -244,7 +240,6 @@ const updateBusinessProfile = async (id, data) => {
 };
 
 const updateBookingStatus = async (bookingId, status, reason = "") => {
-  // 1. Update the status and note
   const updateMutation = gql`
     mutation UpdateBooking($id: ID!, $status: String!, $reason: String) {
       updateBooking(
@@ -258,7 +253,6 @@ const updateBookingStatus = async (bookingId, status, reason = "") => {
 
   const result = await executeQuery(updateMutation, { id: bookingId, status, reason });
 
-  // 2. IMPORTANT: Publish the update so the UI sees it
   if (result) {
     const publishMutation = gql`
       mutation PublishBooking($id: ID!) {
@@ -308,8 +302,6 @@ const uploadAsset = async (file) => {
   return await response.json();
 };
 
-// --- ADMIN & MANAGEMENT LOGIC ---
-
 const deleteBusiness = async (businessId) => {
   const mutation = gql`
     mutation DeleteBusiness($id: ID!) {
@@ -320,10 +312,6 @@ const deleteBusiness = async (businessId) => {
   return executeQuery(mutation, { id: businessId });
 };
 
-/**
- * Updated Business Logic
- * Handles text fields and optional relationship updates for Category/Images.
- */
 const updateBusiness = async (id, data) => {
   const mutation = gql`
     mutation UpdateBusiness(
@@ -342,9 +330,7 @@ const updateBusiness = async (id, data) => {
           address: $address, 
           contactPerson: $contactPerson,
           about: $about,
-          # Update Category if ID is provided
           category: { connect: { id: $categoryId } },
-          # Update Image if ID is provided
           images: { connect: [{ id: $imageId }] }
         }
       ) { id }
@@ -412,7 +398,6 @@ const getAdminStats = async () => {
 };
 
 const createNewBusiness = async (data) => {
-  // 1. Define the Creation Mutation
   const createMutation = gql`
     mutation CreateBusiness(
       $name: String!, 
@@ -438,7 +423,6 @@ const createNewBusiness = async (data) => {
     }
   `;
 
-  // 2. Execute the Create Mutation
   const createResult = await executeQuery(createMutation, {
     ...data,
     phone: parseInt(data.phone) 
@@ -446,7 +430,6 @@ const createNewBusiness = async (data) => {
 
   const newId = createResult?.createBusinessList?.id;
 
-  // 3. Automatically Publish if creation was successful
   if (newId) {
     const publishMutation = gql`
       mutation PublishBusiness($id: ID!) {
@@ -462,8 +445,6 @@ const createNewBusiness = async (data) => {
   return createResult;
 };
 
-
-// --- REVIEWS & RATINGS ---
 const createReviews = async (businessId, userName, rating, reviewText) => {
   const mutation = gql`
     mutation CreateReview($businessId: ID!, $userName: String!, $rating: Int!, $reviewText: String!) {
@@ -480,7 +461,6 @@ const createReviews = async (businessId, userName, rating, reviewText) => {
   
   const result = await executeQuery(mutation, { businessId, userName, rating, reviewText });
   
-  // FIX: Use publishReviews (plural) to match your schema
   if (result?.createReviews?.id) {
     const publishMutation = gql`
       mutation PublishReview($id: ID!) {
@@ -500,7 +480,6 @@ const getBusinessReviews = async (businessId) => {
       reviewConnection(
         where: { businessList: { id: $businessId } }, 
         orderBy: createdAt_DESC,
-        # Force it to show DRAFT items if publishing is slow
         stage: DRAFT
       ) {
         edges {
@@ -519,14 +498,9 @@ const getBusinessReviews = async (businessId) => {
   return result?.reviewConnection?.edges.map(edge => edge.node) || [];
 };
 
-// --- INTERVAL BOOKING ---
-
-// --- INTERVAL BOOKING ---
-
 const createIntervalBooking = async (businessId, startDate, endDate, userEmail, userName) => {
   const mutation = gql`
     mutation CreateBooking($businessId: ID!, $startDate: String!, $endDate: String!, $userEmail: String!, $userName: String!) {
-      # 1. Create the booking record
       createBooking(data: {
         userName: $userName,
         userEmail: $userEmail,
@@ -538,13 +512,11 @@ const createIntervalBooking = async (businessId, startDate, endDate, userEmail, 
         id 
       }
 
-      # 2. Publish the new booking immediately
-      publishManyBookings(where: {userEmail: $userEmail, bookingStatut: booked}, to: [PUBLISHED]) {
+      publishManyBookings(where: {bookingStatut: booked}, to: [PUBLISHED]) {
         count
       }
 
-      # 3. FIX: Publish the BusinessList to sync the new relationship and remove the "?" 
-      # This ensures the business entry itself is marked as fully published with the new booking.
+      # FIX: Publishes the Business to remove the "?" status in UI
       publishBusinessList(where: { id: $businessId }, to: [PUBLISHED]) {
         id
       }
