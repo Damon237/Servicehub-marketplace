@@ -3,6 +3,7 @@ import "./globals.css";
 import Header from "./_components/Header";
 import NextAuthSessionProvider from "./provider";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "./_components/ThemeProvider"; // Ensure you create this file next
 
 const inter = Outfit({ subsets: ["latin"] });
 
@@ -13,16 +14,23 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-      <NextAuthSessionProvider>
-        <div className=" mx-6 md:mx-16">
-          <Header/>
-          <Toaster />
-        {children}
-        </div>
-       </NextAuthSessionProvider>
-        </body>
+        <NextAuthSessionProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <div className="mx-6 md:mx-16">
+              <Header />
+              <Toaster />
+              {children}
+            </div>
+          </ThemeProvider>
+        </NextAuthSessionProvider>
+      </body>
     </html>
   );
 }
