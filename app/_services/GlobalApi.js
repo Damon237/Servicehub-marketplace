@@ -521,10 +521,12 @@ const getBusinessReviews = async (businessId) => {
 
 // --- INTERVAL BOOKING ---
 
+// --- INTERVAL BOOKING ---
+
 const createIntervalBooking = async (businessId, startDate, endDate, userEmail, userName) => {
   const mutation = gql`
     mutation CreateBooking($businessId: ID!, $startDate: String!, $endDate: String!, $userEmail: String!, $userName: String!) {
-      # Use createBooking (singular) as verified by your test
+      # 1. Create the booking record
       createBooking(data: {
         userName: $userName,
         userEmail: $userEmail,
@@ -536,15 +538,19 @@ const createIntervalBooking = async (businessId, startDate, endDate, userEmail, 
         id 
       }
 
-      # Publish immediately after creation
-      publishManyBookings(where: {bookingStatut: booked}, to: [PUBLISHED]) {
+      # 2. Publish the new booking immediately
+      publishManyBookings(where: {userEmail: $userEmail, bookingStatut: booked}, to: [PUBLISHED]) {
         count
+      }
+
+      # 3. FIX: Publish the BusinessList to sync the new relationship and remove the "?" 
+      # This ensures the business entry itself is marked as fully published with the new booking.
+      publishBusinessList(where: { id: $businessId }, to: [PUBLISHED]) {
+        id
       }
     }
   `;
 
-  // Note: We are mapping 'startDate' to the 'date' field 
-  // and 'endDate' to the 'time' field to fit your schema.
   return await executeQuery(mutation, { 
     businessId, 
     startDate, 
