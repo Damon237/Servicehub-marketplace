@@ -88,21 +88,32 @@ const getBusinessById = async (id) => {
 // --- BOOKING LOGIC ---
 const createNewBooking = async (businessId, date, time, userEmail, userName) => {
   const mutation = gql`
-    mutation CreateBooking($businessId: ID!, $date: String!, $time: String!, $userEmail: String!, $userName: String!) {
+    mutation CreateBooking(
+      $businessId: ID!, 
+      $date: String!, 
+      $time: String!, 
+      $userEmail: String!, 
+      $userName: String!
+    ) {
+      # 1. Create the booking with the connected business relationship
       createBooking(data: {
-        bookingStatut: booked,
+        bookingStatut: booked, # Ensure 'booked' is a valid value in your Hygraph Enum
         businessList: { connect: { id: $businessId } }, 
         date: $date, 
         time: $time, 
         userEmail: $userEmail, 
         userName: $userName
-      }) { id }
+      }) { 
+        id 
+      }
       
-      publishManyBookings(where: { userEmail: $userEmail }, to: [PUBLISHED]) {
+      # 2. Immediately publish the new booking so it appears in the 'Upcoming' tab
+      publishManyBookings(to: [PUBLISHED]) {
         count
       }
     }
   `;
+  
   return executeQuery(mutation, { businessId, date, time, userEmail, userName });
 };
 
@@ -155,26 +166,30 @@ const getBookingHistoryByBusinessEmail = async (email) => {
         date
         time
         bookingStatut
-        postponeReason
       }
     }
   `;
   return executeQuery(query, { email });
 };
 
-const BusinessBookedSlot = async (businessId, date) => {
+const BusinessBookedSlot = async (businessId) => {
   const query = gql`
-    query BusinessBookedSlot($businessId: ID!, $date: String!) {
+    query BusinessBookedSlot($businessId: ID!) {
       bookings(where: { 
-        businessList: { id: $businessId }, 
-        date: $date 
+        businessList: { id: $businessId }
       }) {
         date
         time
       }
     }
   `;
-  return executeQuery(query, { businessId, date });
+  
+  // CRITICAL: This object must match the name in the query above ($businessId)
+  const variables = { 
+    businessId: businessId 
+  }; 
+
+  return executeQuery(query, variables);
 };
 
 const updateBookingStatusAndReason = async (bookingId, status, reason = "") => {

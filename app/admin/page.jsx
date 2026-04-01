@@ -195,7 +195,7 @@ const calculateStats = () => {
         const end = moment(item.time, 'DD-MMM-YYYY').startOf('day');
         const totalDays = end.diff(start, 'days') + 1;
         let price = 2000;
-        if (totalDays > 3) price = 2000 + ((totalDays - 3) * 500);
+        if (totalDays > 3) price = 2000 + ((totalDays - 3) * 250);
         return price;
     };
 
@@ -363,10 +363,10 @@ const calculateStats = () => {
         // Base price: 2000 XAF for the first 3 days
         let actualPrice = 2000;
         
-        // Add 500 XAF for every day starting from the 4th day
+        // Add 250 XAF for every day starting from the 4th day
         if (days > 3) {
             const extraDays = days - 3;
-            actualPrice = 2000 + (extraDays * 500);
+            actualPrice = 2000 + (extraDays * 250);
         }
 
         return (
