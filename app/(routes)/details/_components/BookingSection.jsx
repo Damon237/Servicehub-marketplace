@@ -110,6 +110,8 @@ function BookingSection({ children, business }) {
 
   const saveBooking = async () => {
     setIsLoading(true);
+    
+    // Data for database and email
     const bookingData = {
       businessId: business.id,
       startDate: moment(dateRange.from).format('DD-MMM-YYYY'),
@@ -121,18 +123,32 @@ function BookingSection({ children, business }) {
     };
 
     try {
+      // 1. Save to Database
       const response = await fetch('/api/booking', {
         method: 'POST',
         body: JSON.stringify(bookingData),
       });
 
       if (response.ok) {
-        toast("Booking successful! Provider notified.");
+        // 2. Trigger Professional Email Notification
+        await fetch('/api/send', {
+          method: 'POST',
+          body: JSON.stringify({
+            customerName: bookingData.userName,
+            customerEmail: bookingData.userEmail,
+            startDate: bookingData.startDate,
+            endDate: bookingData.endDate,
+            serviceName: bookingData.businessName,
+            providerEmail: bookingData.providerEmail
+          }),
+        });
+
+        toast.success("Booking successful! Provider notified.");
       } else {
         throw new Error();
       }
     } catch (e) {
-      toast("Error while booking");
+      toast.error("Error while booking");
     } finally {
       setIsLoading(false);
       setIsPaying(false);
