@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react'
 import moment from 'moment'
 
 function MyBooking() {
+
     const { data: session } = useSession();
     const [bookingHistory, setBookingHistory] = useState([]);
 
@@ -20,47 +21,51 @@ function MyBooking() {
         })
     }
 
-    /**
-     * Logic to filter bookings:
-     * Completed if: Status is 'Completed' OR the date has passed.
-     */
     const filterData = (type) => {
-        return bookingHistory.filter(item => {
-            const bookingEndDate = moment(item.time, 'DD-MMM-YYYY').endOf('day');
-            const isPast = moment().isAfter(bookingEndDate);
-            // Standardizing check to handle case-insensitivity from database
-            const isStatusDone = item.bookingStatut?.toLowerCase() === 'completed';
+    return bookingHistory.filter(item => {
+        const bookingEndDate = moment(item.time, 'DD-MMM-YYYY').endOf('day');
+        const isPast = moment().isAfter(bookingEndDate);
+        const isStatusDone = item.bookingStatut === 'Completed';
 
-            if (type === 'booked') {
-                return !isPast && !isStatusDone;
-            }
-            
-            if (type === 'completed') {
-                return isPast || isStatusDone;
-            }
-            return false;
-        });
+        if (type === 'booked') {
+            return !isPast && !isStatusDone;
+        }
+        return isPast || isStatusDone;
+    })
     }
 
     return (
-        <div className='my-6 md:my-10 mx-4 sm:mx-10 md:mx-24 lg:mx-36'>
-            <div className='mb-6'>
-                <h2 className='font-bold text-xl md:text-2xl text-blue-500'>My Service History</h2>
-                <p className='text-gray-500 text-sm md:text-base'>Manage your upcoming and past service appointments.</p>
-            </div>
+        <div className='my-10 mx-5 md:mx-36'>
+            <h2 className='font-bold text-[28px] dark:text-slate-100'>My Bookings</h2>
 
-            <Tabs defaultValue="booked" className="w-full">
-                <TabsList className="w-full md:w-max justify-start bg-slate-100 p-1 rounded-xl">
-                    <TabsTrigger value="booked" className="flex-1 md:px-12 py-2.5 rounded-lg">Upcoming</TabsTrigger>
-                    <TabsTrigger value="completed" className="flex-1 md:px-12 py-2.5 rounded-lg">Completed</TabsTrigger>
+            <Tabs defaultValue="booked" className="w-full mt-6">
+                <TabsList className="w-full md:w-max justify-start bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                    <TabsTrigger 
+                        value="booked" 
+                        className="flex-1 md:px-12 py-2.5 rounded-lg data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-800 dark:text-slate-400 dark:data-[state=active]:text-slate-100"
+                    >
+                        Upcoming
+                    </TabsTrigger>
+                    <TabsTrigger 
+                        value="completed" 
+                        className="flex-1 md:px-12 py-2.5 rounded-lg data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-800 dark:text-slate-400 dark:data-[state=active]:text-slate-100"
+                    >
+                        Completed
+                    </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="booked" className="mt-6">
-                    <BookingHistoryList bookingHistory={filterData('booked')} type='booked' />
+                <TabsContent value="booked" className="mt-6 animate-in fade-in duration-300">
+                    <BookingHistoryList 
+                        bookingHistory={filterData('booked')}
+                        type='booked'
+                    />
                 </TabsContent>
 
-                <TabsContent value="completed" className="mt-6">
-                    <BookingHistoryList bookingHistory={filterData('completed')} type='completed' />    
+                <TabsContent value="completed" className="mt-6 animate-in fade-in duration-300">
+                    <BookingHistoryList 
+                        bookingHistory={filterData('completed')}
+                        type='completed'
+                    />    
                 </TabsContent>
             </Tabs>
         </div>

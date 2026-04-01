@@ -1,4 +1,3 @@
-// @/app/_components/ChatComponent.jsx
 "use client"
 import React, { useState, useEffect, useRef } from 'react';
 import GlobalApi from '@/app/_services/GlobalApi';
@@ -59,38 +58,32 @@ function ChatComponent({ bookingId, currentUserEmail, recipientName }) {
     };
 
     return (
-        <div className="flex flex-col h-[500px] md:h-[450px] bg-white">
+        <div className="flex flex-col h-[500px] md:h-[450px] bg-white dark:bg-slate-950">
             {/* Header */}
-            <div className="p-4 border-b flex items-center justify-between bg-slate-50">
+            <div className="p-4 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
                 <div className='flex items-center gap-2'>
-                    <div className='p-2 bg-blue-100 rounded-full'>
-                        <User size={16} className='text-blue-600'/>
+                    <div className='p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full'>
+                        <User size={16} className='text-blue-600 dark:text-blue-400'/>
                     </div>
                     <div>
-                        <h3 className="font-bold text-sm text-slate-800">{recipientName}</h3>
+                        <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">{recipientName}</h3>
                         <p className='text-[10px] text-green-500 font-medium'>Live Chat</p>
                     </div>
                 </div>
             </div>
             
             {/* Message Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30 dark:bg-slate-950">
                 {fetching && messages.length === 0 ? (
                     <div className='flex justify-center items-center h-full'>
-                        <Loader2 className='animate-spin text-slate-300' />
+                        <Loader2 className='animate-spin text-slate-300 dark:text-slate-700' />
                     </div>
                 ) : messages.length === 0 ? (
                     <div className='text-center mt-10'>
-                        <p className='text-xs text-slate-400'>No messages yet.</p>
+                        <p className='text-xs text-slate-400 dark:text-slate-600'>No messages yet.</p>
                     </div>
                 ) : (
                     messages.map((msg, index) => {
-                        /**
-                         * LOGIC EXPLANATION:
-                         * 1. Since this is the Provider Dashboard, 'currentUserEmail' belongs to the ARTISAN.
-                         * 2. If msg.senderEmail === currentUserEmail, it's the Service Provider.
-                         * 3. Otherwise, it's the Customer.
-                         */
                         const isServiceProvider = msg.senderEmail === currentUserEmail;
 
                         return (
@@ -98,12 +91,12 @@ function ChatComponent({ bookingId, currentUserEmail, recipientName }) {
                                 <div className={`flex flex-col ${isServiceProvider ? 'items-start' : 'items-end'} max-w-[85%]`}>
                                     <div className={`p-3 rounded-2xl text-sm shadow-md ${
                                         isServiceProvider 
-                                        ? 'bg-blue-600 text-white rounded-tl-none' // Provider: BLUE on the LEFT
-                                        : 'bg-emerald-500 text-white rounded-tr-none' // Customer: GREEN on the RIGHT
+                                        ? 'bg-blue-600 text-white rounded-tl-none' 
+                                        : 'bg-emerald-500 dark:bg-emerald-600 text-white rounded-tr-none' 
                                     }`}>
                                         {msg.content}
                                     </div>
-                                    <span className='text-[9px] text-slate-400 mt-1 px-1'>
+                                    <span className='text-[9px] text-slate-400 dark:text-slate-600 mt-1 px-1'>
                                         {moment(msg.createdAt).format('LT')}
                                     </span>
                                 </div>
@@ -115,14 +108,14 @@ function ChatComponent({ bookingId, currentUserEmail, recipientName }) {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 border-t bg-white">
-                <div className="flex gap-2 items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="p-4 border-t dark:border-slate-800 bg-white dark:bg-slate-950">
+                <div className="flex gap-2 items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
                     <Input 
                         placeholder="Type your message..." 
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                        className="border-none bg-transparent focus-visible:ring-0 text-sm h-9"
+                        className="border-none bg-transparent focus-visible:ring-0 text-sm h-9 dark:text-slate-200"
                     />
                     <Button 
                         size="icon" 

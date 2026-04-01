@@ -49,11 +49,11 @@ function Header() {
         <div className='md:hidden'>
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="dark:border-slate-800">
+              <Button variant="outline" size="icon" className="dark:border-slate-800 dark:text-slate-200">
                 <Menu className='h-6 w-6' />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="dark:bg-slate-950">
+            <SheetContent side="left" className="dark:bg-slate-950 dark:border-slate-800">
               <div className='flex flex-col gap-5 mt-10 text-lg font-medium'>
                  <NavigationLinks className='flex flex-col gap-5' />
               </div>
@@ -76,7 +76,7 @@ function Header() {
               <DropdownMenuLabel className="dark:text-slate-200">My Account</DropdownMenuLabel>
               <DropdownMenuSeparator className="dark:bg-slate-800" />
               <DropdownMenuItem className="cursor-pointer dark:focus:bg-slate-800">
-                <Link href='/mybooking' className="w-full">My Booking</Link>
+                <Link href='/mybooking' className="w-full dark:text-slate-200">My Booking</Link>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => signOut()} 
