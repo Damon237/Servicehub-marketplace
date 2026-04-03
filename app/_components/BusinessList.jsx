@@ -26,11 +26,10 @@ function BusinessList({ businessList = [], title }) {
 
       const nearby = businessList.filter(biz => {
         if (biz.location && biz.location.latitude && biz.location.longitude) {
+          // FIXED: Grouped coordinates into objects to match your utility structure
           const dist = calculateDistance(
-            userLat, 
-            userLon, 
-            biz.location.latitude, 
-            biz.location.longitude
+            { lat: userLat, lng: userLon }, 
+            { lat: biz.location.latitude, lng: biz.location.longitude }
           );
           return dist <= 5; // Within 5km
         }
@@ -39,6 +38,9 @@ function BusinessList({ businessList = [], title }) {
 
       setDisplayList(nearby);
       setIsFiltered(true);
+    }, (err) => {
+      console.error("Error getting location:", err);
+      alert("Please enable location access to find nearby services.");
     });
   };
 
@@ -109,7 +111,6 @@ function BusinessList({ businessList = [], title }) {
         )}
       </div>
 
-      {/* Footer Banner Section */}
       <div className='mt-16 p-6 md:p-8 bg-blue-50 dark:bg-slate-900 rounded-2xl border border-blue-100 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-5 text-center md:text-left'>
         <div className='flex items-center gap-5 flex-col md:flex-row'>
           <div className='bg-white dark:bg-slate-800 p-4 rounded-full shadow-sm'>
