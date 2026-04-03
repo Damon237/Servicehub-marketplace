@@ -49,11 +49,11 @@ function Hero() {
     <div className='flex items-center gap-4 flex-col justify-center pt-20 pb-10 px-6'>
       <h2 className='font-bold text-[30px] sm:text-[36px] md:text-[46px] text-center leading-tight max-w-[800px]'>
         Find Home <span className='text-blue-500'>Service/Repair</span>
-        <br className='hidden sm:block'></br> Near You
+        <br className='hidden sm:block'></br> Near You.
       </h2>
 
       <h2 className='text-md md:text-xl text-gray-400 text-center max-w-[500px]'>
-        Explore Best Home Service & Repair near you
+        Explore Best Home Service & Repair near you.
       </h2>
 
       <div className='mt-6 relative w-full max-w-[600px]'>
@@ -65,7 +65,7 @@ function Hero() {
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onSearchClick()}
             onFocus={() => setIsFocused(true)}
-            onBlur={() => setTimeout(() => setIsFocused(false), 200)} // Delay to allow clicks
+            onBlur={() => setTimeout(() => setIsFocused(false), 100)} // Delay to allow clicks
           />
           <Button
             className="rounded-full h-[46px] w-[46px] md:w-auto bg-blue-500 px-4 hover:bg-blue-600 transition-all"

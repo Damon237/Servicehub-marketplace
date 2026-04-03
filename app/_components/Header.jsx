@@ -69,7 +69,7 @@ function Header() {
                 alt='user'
                 width={40}
                 height={40}
-                className='rounded-full bg-blue-500 cursor-pointer border-2 border-transparent hover:border-blue-200 transition-all'
+                className='rounded-full cursor-pointer border-2 border-transparent hover:border-blue-200 transition-all'
               />
             </DropdownMenuTrigger>
             <DropdownMenuContent className="dark:bg-slate-900 dark:border-slate-800">
