@@ -226,8 +226,13 @@ const calculateStats = () => {
             };
         });
 
-    return {
+   return {
         completedCount: bookings.filter(b => b.bookingStatut?.toLowerCase() === 'completed').length,
+        // ADD THIS LINE:
+        pendingCount: bookings.filter(b => 
+            b.bookingStatut?.toLowerCase() === 'pending' || 
+            b.bookingStatut?.toLowerCase() === 'booked' // Matches what your frontend sends
+        ).length,
         totalRevenue,
         todayRevenue,
         revenueChartData,

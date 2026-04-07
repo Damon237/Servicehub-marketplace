@@ -11,20 +11,32 @@ sequenceDiagram
     DB-->>API: Service list
     API-->>UI: Return services
     UI-->>Client: Display services
+    API->>SP: Notify new search
+    SP-->>API: Respond to search
+
 
     Client->>UI: Select provider
     UI->>API: GET /providers
     API->>DB: Fetch providers
     DB-->>API: Provider list
     API-->>UI: Return providers
+    UI-->>Client: Display providers
+    API->>SP: Notify provider selection
+    SP-->>API: Respond to provider selection
+
 
     Client->>UI: Book service
     UI->>API: POST /booking
     API->>DB: Save booking
     API->>SP: Notify provider
 
+
     SP-->>API: Accept booking
     API->>DB: Update booking status
+    APi-->>SP: Confirm booking
+
 
     API-->>UI: Booking confirmed
     UI-->>Client: Show confirmation
+    SP-->>API: Complete service
+    API->>DB: Update booking status

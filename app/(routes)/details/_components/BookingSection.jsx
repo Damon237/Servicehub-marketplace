@@ -36,7 +36,6 @@ function BookingSection({ children, business }) {
             getBusinessBookings();
         }
         
-        // Calculate distance using your helper: calculateDistance(point1, point2)
         if (business?.location && typeof window !== 'undefined') {
             navigator.geolocation.getCurrentPosition((pos) => {
                 const userPoint = {
@@ -68,9 +67,11 @@ function BookingSection({ children, business }) {
         }
     }
 
-    // Logic for calculating charges
     const bookingDetails = useMemo(() => {
-        if (!dateRange.from || !dateRange.to) return { totalDays: 0, extraCharge: 0, totalAmount: 2000, extraDays: 0 };
+        // FIXED: Added safety check to prevent "Cannot read properties of undefined (reading 'from')"
+        if (!dateRange || !dateRange.from || !dateRange.to) {
+            return { totalDays: 0, extraCharge: 0, totalAmount: 2000, extraDays: 0 };
+        }
         
         const start = moment(dateRange.from);
         const end = moment(dateRange.to);
@@ -89,30 +90,47 @@ function BookingSection({ children, business }) {
     }, [dateRange]);
 
     const saveBooking = async () => {
-        if (!dateRange.from || !dateRange.to) {
-            toast.error("Please select a date range");
-            return;
-        }
-        setIsLoading(true);
-        try {
-            const resp = await GlobalApi.createNewBooking(
-                business.id,
-                moment(dateRange.from).format('DD-MMM-YYYY'),
-                moment(dateRange.to).format('DD-MMM-YYYY'),
-                session.user.email,
-                session.user.name
-            );
+    if (!dateRange?.from || !dateRange?.to) {
+        toast.error("Please select a date range");
+        return;
+    }
+    setIsLoading(true);
+    try {
+        // 1. Create the booking in your database
+        const resp = await GlobalApi.createNewBooking(
+            business.id,
+            moment(dateRange.from).format('DD-MMM-YYYY'),
+            moment(dateRange.to).format('DD-MMM-YYYY'),
+            session.user.email,
+            session.user.name
+        );
 
-            if (resp) {
-                setIsLoading(false);
-                toast.success('Service Booked Successfully!');
-                setShowRatingModal(true);
+        if (resp) {
+            // 2. Notify the Service Provider using Resend
+            try {
+                await GlobalApi.createNotification({
+                    // Aligning keys with your API's expected destructuring
+                    providerEmail: business.contactPersonEmail || business.email, 
+                    customerName: session.user.name,
+                    customerEmail: session.user.email,
+                    serviceName: business.name,
+                    startDate: moment(dateRange.from).format('DD-MMM-YYYY'),
+                    endDate: moment(dateRange.to).format('DD-MMM-YYYY'),
+                });
+            } catch (notifyErr) {
+                console.error("Email notification failed:", notifyErr);
+                // We don't stop the flow here because the booking itself was successful
             }
-        } catch (e) {
+
             setIsLoading(false);
-            toast.error('Error while booking. Please try again.');
+            toast.success('Service Booked Successfully!');
+            setShowRatingModal(true);
         }
-    };
+    } catch (e) {
+        setIsLoading(false);
+        toast.error('Error while booking. Please try again.');
+    }
+};
 
     return (
         <div>
@@ -136,15 +154,11 @@ function BookingSection({ children, business }) {
                     </SheetHeader>
 
                     <div className='flex flex-col gap-4 mt-5'>
-                        
-                        {/* 1. Initial Notice */}
                         <div className='bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3'>
-                            <Info className='text-blue-600 shrink-0' size={20} />
                             <p className='text-blue-800 text-sm'>
                                 A base payment of <span className='font-bold text-blue-900'>2,000 XAF</span> is required for Securing your Book Slot. </p>
                         </div>
 
-                        {/* Extended Duration Notification */}
                         {bookingDetails.extraDays > 0 && (
                             <div className='bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start gap-3 animate-in fade-in zoom-in duration-300'>
                                 <AlertCircle className='text-amber-600 shrink-0' size={20} />
@@ -157,7 +171,6 @@ function BookingSection({ children, business }) {
                             </div>
                         )}
 
-                        {/* 2. Operator Selection */}
                         <div className='space-y-3'>
                             <h2 className='font-bold text-slate-800 flex items-center gap-2'>
                                 <Wallet className='text-blue-600' size={18}/> 1. Select Operator
@@ -178,7 +191,6 @@ function BookingSection({ children, business }) {
                             </div>
                         </div>
 
-                        {/* 3. Date Selection */}
                         <div className='space-y-3'>
                             <h2 className='font-bold text-slate-800 flex items-center gap-2'>
                                 <CalendarIcon className='text-blue-600' size={18}/> 2. Select Date Range
@@ -191,7 +203,6 @@ function BookingSection({ children, business }) {
                             </div>
                         </div>
 
-                        {/* 4. Dynamic Pricing Calculation Display */}
                         <div className='mt-2 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2'>
                             <div className='flex justify-between text-sm text-slate-600'>
                                 <span>Base Booking (3 Days)</span>
@@ -218,7 +229,7 @@ function BookingSection({ children, business }) {
 
                     <SheetFooter className="mt-5">
                         <Button 
-                            disabled={isLoading || !dateRange.to} 
+                            disabled={isLoading || !dateRange?.to} 
                             onClick={saveBooking}
                             className={`w-full h-12 rounded-xl text-white font-bold transition-all ${selectedOperator === 'MTN' ? 'bg-yellow-400 hover:bg-yellow-500' : 'bg-orange-300 hover:bg-orange-500'}`}
                         >
@@ -228,7 +239,6 @@ function BookingSection({ children, business }) {
                 </SheetContent>
             </Sheet>
 
-            {/* Success Modal stays the same */}
             {showRatingModal && (
                 <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-8 max-w-xs shadow-2xl text-center">

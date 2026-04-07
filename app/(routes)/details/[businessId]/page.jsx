@@ -48,15 +48,11 @@ function BusinessDetail({params}) {
 
   return status == 'authenticated' && business && (
     <div className='py-6 md:py-16 px-4 sm:px-8 md:px-16 lg:px-36'>
-        {/* Top Section: Business Header Info */}
         <div className='w-full'>
             <BusinessInfo business={business} reviews={reviews} />
         </div>
 
-        {/* Main Content Grid */}
         <div className='grid grid-cols-1 md:grid-cols-3 mt-8 md:mt-12 gap-8 lg:gap-12'>
-          
-          {/* Left Column: Description and Reviews */}
           <div className='md:col-span-2 space-y-10 order-2 md:order-1'>
             <div className='bg-white rounded-2xl'>
                 <BusinessDescription business={business}/>
@@ -71,15 +67,14 @@ function BusinessDetail({params}) {
             </div>
           </div>
 
-          {/* Right Column: Sidebar / Suggested Items */}
           <div className='order-1 md:order-2'>
             <div className='sticky top-24'>
                 <SuggestedBusinessList business={business}/>
             </div>
           </div>
-
         </div>
     </div>
   )
 }
+
 export default BusinessDetail;

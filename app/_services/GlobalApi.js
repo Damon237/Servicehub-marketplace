@@ -603,6 +603,22 @@ const createNewMessage = async (bookingId, senderEmail, content, userName) => {
   return await request(MASTER_URL, mutation, variables);
 };
 
+const createNotification = async (data) => {
+  try {
+    const response = await fetch('/api/booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error("❌ Notification Error:", error);
+    throw error;
+  }
+};
+
 export default {
   getCategory, 
   getAllBusinessList,
@@ -630,4 +646,5 @@ export default {
   getBusinessBookings,
   getMessagesByBookingId,
   createNewMessage,
+  createNotification
 };
