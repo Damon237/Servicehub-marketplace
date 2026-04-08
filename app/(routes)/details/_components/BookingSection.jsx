@@ -89,43 +89,43 @@ function BookingSection({ children, business }) {
     }, [dateRange]);
 
     const saveBooking = async () => {
-    if (!dateRange?.from || !dateRange?.to) {
-        toast.error("Please select a date range");
-        return;
-    }
-    setIsLoading(true);
-    try {
-        const resp = await GlobalApi.createNewBooking(
-            business.id,
-            moment(dateRange.from).format('DD-MMM-YYYY'),
-            moment(dateRange.to).format('DD-MMM-YYYY'),
-            session.user.email,
-            session.user.name
-        );
-
-        if (resp) {
-            try {
-                await GlobalApi.createNotification({
-                    providerEmail: business.contactPersonEmail || business.email, 
-                    customerName: session.user.name,
-                    customerEmail: session.user.email,
-                    serviceName: business.name,
-                    startDate: moment(dateRange.from).format('DD-MMM-YYYY'),
-                    endDate: moment(dateRange.to).format('DD-MMM-YYYY'),
-                });
-            } catch (notifyErr) {
-                console.error("Email notification failed:", notifyErr);
-            }
-
-            setIsLoading(false);
-            toast.success('Service Booked Successfully!');
-            setShowRatingModal(true);
+        if (!dateRange?.from || !dateRange?.to) {
+            toast.error("Please select a date range");
+            return;
         }
-    } catch (e) {
-        setIsLoading(false);
-        toast.error('Error while booking. Please try again.');
-    }
-};
+        setIsLoading(true);
+        try {
+            const resp = await GlobalApi.createNewBooking(
+                business.id,
+                moment(dateRange.from).format('DD-MMM-YYYY'),
+                moment(dateRange.to).format('DD-MMM-YYYY'),
+                session.user.email,
+                session.user.name
+            );
+
+            if (resp) {
+                try {
+                    await GlobalApi.createNotification({
+                        providerEmail: business.contactPersonEmail || business.email, 
+                        customerName: session.user.name,
+                        customerEmail: session.user.email,
+                        serviceName: business.name,
+                        startDate: moment(dateRange.from).format('DD-MMM-YYYY'),
+                        endDate: moment(dateRange.to).format('DD-MMM-YYYY'),
+                    });
+                } catch (notifyErr) {
+                    console.error("Email notification failed:", notifyErr);
+                }
+
+                setIsLoading(false);
+                toast.success('Service Booked Successfully!');
+                setShowRatingModal(true);
+            }
+        } catch (e) {
+            setIsLoading(false);
+            toast.error('Error while booking. Please try again.');
+        }
+    };
 
     return (
         <div>
@@ -239,14 +239,14 @@ function BookingSection({ children, business }) {
             </Sheet>
 
             {showRatingModal && (
-                <div className="fixed inset-0 bg-black/60 z- flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 max-w-xs shadow-2xl text-center border dark:border-slate-800">
+                <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 max-w-xs shadow-2xl text-center border dark:border-slate-800 animate-in zoom-in duration-300">
                         <div className="mx-auto w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mb-4 text-yellow-600 dark:text-yellow-500">
                             <Star size={24} fill="currentColor" />
                         </div>
                         <h4 className="font-bold text-lg dark:text-slate-100">Success!</h4>
                         <p className="text-sm text-slate-500 dark:text-slate-400 my-2">Your booking is confirmed. View your history to manage it.</p>
-                        <Button className="w-full mt-4" onClick={() => window.location.href = '/mybooking'}>View My Bookings</Button>
+                        <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700" onClick={() => window.location.href = '/mybooking'}>View My Bookings</Button>
                     </div>
                 </div>
             )}

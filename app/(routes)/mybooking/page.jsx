@@ -43,16 +43,22 @@ function MyBooking() {
     return (
         <div className='my-6 md:my-10 mx-4 sm:mx-10 md:mx-24 lg:mx-36'>
             <div className='mb-6'>
-                <h2 className='font-bold text-xl md:text-2xl text-blue-500'>My Service History</h2>
-                <p className='text-gray-500 text-sm md:text-base'>Manage your upcoming and past service appointments.</p>
+                <h2 className='font-bold text-xl md:text-2xl text-blue-500 dark:text-blue-400'>My Service History</h2>
+                <p className='text-gray-500 dark:text-slate-400 text-sm md:text-base'>Manage your upcoming and past service appointments.</p>
             </div>
 
             <Tabs defaultValue="booked" className="w-full">
-                <TabsList className="w-full md:w-max justify-start bg-slate-100 p-1 rounded-xl">
-                    <TabsTrigger value="booked" className="flex-1 md:px-12 py-2.5 rounded-lg">
+                <TabsList className="w-full md:w-max justify-start bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                    <TabsTrigger 
+                        value="booked" 
+                        className="flex-1 md:px-12 py-2.5 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 dark:data-[state=active]:text-white dark:text-slate-400"
+                    >
                         Upcoming
                     </TabsTrigger>
-                    <TabsTrigger value="completed" className="flex-1 md:px-12 py-2.5 rounded-lg">
+                    <TabsTrigger 
+                        value="completed" 
+                        className="flex-1 md:px-12 py-2.5 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 dark:data-[state=active]:text-white dark:text-slate-400"
+                    >
                         Completed
                     </TabsTrigger>
                 </TabsList>
