@@ -6,11 +6,11 @@ function BusinessDescription({business}) {
   const [selectedImage, setSelectedImage] = useState(null);
 
   return business?.name&&(
-    <div>
-      <h2 className='font-bold text-[25px] '>Description</h2>
-      <p className='mt-4 text-lg text-gray-600'>{business.about}</p>
+    <div className='flex flex-col gap-6 mt-10 dark:bg-slate-900 dark:p-6 dark:rounded-lg dark:text-slate-400'>
+      <h2 className='font-bold text-[25px] dark:text-white'>Description</h2>
+      <p className='mt-4 text-lg text-gray-700 dark:text-gray-300'>{business.about}</p>
 
-      <h2 className='font-bold text-[25px] mt-8'>Gallary</h2>
+      <h2 className='font-bold text-[25px] mt-8 dark:text-white'>Gallary</h2>
       
       {/* Gallery Grid */}
       <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 mt-5'>
@@ -31,7 +31,7 @@ function BusinessDescription({business}) {
       {/* Full-Screen Image Viewer (Lightbox) */}
       {selectedImage && (
         <div 
-          className='fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 transition-all animate-in fade-in duration-300'
+          className='fixed inset-0 bg-black/90 z- flex items-center justify-center p-4 transition-all animate-in fade-in duration-300'
           onClick={() => setSelectedImage(null)}
         >
           <button 

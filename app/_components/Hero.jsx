@@ -60,7 +60,7 @@ function Hero() {
         <div className='flex flex-row gap-2 items-center'>
           <Input
             placeholder='Search for a service'
-            className="rounded-full flex-1 h-[46px] shadow-sm focus:border-blue-500"
+            className="rounded-full flex-1 h-[46px] shadow-sm focus:border-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:focus:ring-blue-500"
             value={searchInput}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onSearchClick()}
@@ -90,14 +90,14 @@ function Hero() {
                   }}
                 >
                   <Search className='h-4 w-4 text-gray-400' />
-                  <span>{cat.name}</span>
+                  <span className='dark:text-slate-900'>{cat.name}</span>
                   <span className='text-xs text-gray-400 ml-auto'>In Categories</span>
                 </div>
               ))
             ) : (
-              <div className='p-4 text-center'>
+              <div className='p-4 text-center dark:text-slate-200 dark:bg-slate-600'>
                 <p className='text-red-500 font-medium'>Not Found</p>
-                <p className='text-xs text-gray-400'>Try searching for "Cleaning", "Repair", or "Painting"</p>
+                <p className='text-xs text-gray-400 dark:text-slate-200'>Try searching for "Cleaning", "Repair", or "Painting"</p>
               </div>
             )}
           </div>

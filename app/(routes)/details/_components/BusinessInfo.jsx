@@ -49,8 +49,8 @@ function BusinessInfo({ business, reviews = [] }) {
         <div className='flex flex-col items-center md:items-start gap-3 text-center md:text-left'>
           <h2 className='text-blue-500 p-1 px-4 text-sm md:text-lg bg-blue-100 rounded-full w-fit'>{business?.category?.name}</h2>
           <h2 className='text-3xl md:text-[40px] font-bold leading-tight'>{business.name}</h2>
-          <h2 className='flex gap-2 text-base md:text-lg text-gray-500'><MapPin className='shrink-0'/> {business.address}</h2>
-          <h2 className='flex gap-2 text-base md:text-lg text-gray-500 truncate max-w-[300px]'><Mail className='shrink-0' />{business?.email}</h2>
+          <h2 className='flex gap-2 text-base md:text-lg text-gray-500 dark:text-slate-200'><MapPin className='shrink-0'/> {business.address}</h2>
+          <h2 className='flex gap-2 text-base md:text-lg text-gray-500 truncate max-w-[300px] dark:text-slate-200'><Mail className='shrink-0' />{business?.email}</h2>
         </div>
 
         {/* Action/Rating Section: Centered on mobile, right-aligned on desktop */}

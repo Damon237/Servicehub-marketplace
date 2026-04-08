@@ -60,7 +60,7 @@ function BusinessList({ businessList = [], title }) {
             <Button 
                 onClick={getNearMe} 
                 variant="outline" 
-                className="flex gap-2 text-blue-500 border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 dark:border-blue-400 dark:text-blue-400"
+                className="flex gap-2 text-blue-500 border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 dark:border-blue-400 dark:text-blue-400 dark:hover:text-blue-300"
             >
                 <MapPin className='h-4 w-4'/> Near Me
             </Button>

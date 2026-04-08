@@ -65,13 +65,13 @@ function SuggestedBusinessList({ business }) {
                 width={80}
                 height={80}
                 unoptimized
-                className='rounded-lg object-cover h-[90px] w-[90px] shrink-0'
+                className='rounded-lg object-cover h-[90px] w-[90px] shrink-0 border border-gray-300'
               />
 
               <div className='flex flex-col justify-center min-w-0'>
                 <h2 className='font-bold text-sm md:text-base truncate'>{item.name}</h2>
                 <h2 className='text-blue-500 text-xs md:text-sm'>{item.contactPerson}</h2>
-                <h2 className='text-gray-400 text-xs md:text-sm line-clamp-1'>{item.address}</h2>
+                <h2 className='text-gray-400 text-xs md:text-sm line-clamp-1 dark:text-slate-200'>{item.address}</h2>
               </div>
 
             </Link>

@@ -62,14 +62,14 @@ function BusinessReview({ businessId, userName }) {
   const displayReviews = showAll ? reviews : reviews.slice(0, 2);
 
   return (
-    <div className='mt-12 px-2 md:px-0'>
+    <div className='mt-12 px-2 md:px-0 dark:bg-slate-900 dark:p-6 dark:rounded-lg dark:text-slate-400'>
       <h2 className='font-bold text-xl md:text-[25px] flex items-center gap-2'>
         <MessageSquare className='text-blue-600 shrink-0' /> 
-        <span className='leading-tight'>Client Feedback & Competence</span>
+        <span className='leading-tight dark:text-slate-200'>Client Feedback & Competence</span>
       </h2>
       
-      <div className='p-4 md:p-6 border rounded-2xl bg-slate-50 mt-5'>
-          <h2 className='font-medium text-slate-600 mb-2'>Rate your experience</h2>
+      <div className='p-4 md:p-6 border rounded-2xl bg-slate-50 mt-5 dark:bg-slate-800 dark:border-slate-700'>
+          <h2 className='font-medium text-slate-600 mb-2 dark:text-slate-300'>Rate your experience</h2>
           <div className='flex gap-2 mb-4'>
             {[1, 2, 3, 4, 5].map((star) => (
               <Star 
@@ -82,7 +82,7 @@ function BusinessReview({ businessId, userName }) {
             ))}
           </div>
           <textarea 
-            className='w-full border rounded-lg p-3 md:p-4 bg-white focus:ring-2 focus:ring-blue-100 outline-none transition-all' 
+            className='w-full border rounded-lg p-3 md:p-4 bg-white focus:ring-2 focus:ring-blue-100 outline-none transition-all dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:focus:ring-blue-500' 
             rows="3" 
             placeholder='Add a comment to help others trust this provider...' 
             onChange={(e) => setReviewText(e.target.value)} 
@@ -90,7 +90,7 @@ function BusinessReview({ businessId, userName }) {
           />
           <Button 
             disabled={!rating || !reviewText || loading} 
-            className='mt-3 w-full md:w-auto bg-blue-600 hover:bg-blue-700' 
+            className='mt-3 w-full md:w-auto bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white' 
             onClick={onSubmit}
           >
             {loading ? "Posting..." : "Post Review"}
@@ -138,7 +138,7 @@ function BusinessReview({ businessId, userName }) {
             )}
           </>
         ) : (
-          <div className='text-center p-10 border border-dashed rounded-xl text-slate-400'>
+          <div className='text-center p-10 border border-dashed rounded-xl text-slate-400 dark:text-slate-200'>
             No reviews yet. Be the first to rate this service!
           </div>
         )}
